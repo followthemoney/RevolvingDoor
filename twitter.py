@@ -2,14 +2,15 @@ import requests
 import json
 from tweeterpy import TweeterPy
 from tweeterpy import config
-from tinydb import TinyDB, Query
 from time import sleep
 import random
 from datetime import datetime, timedelta
 import os
 from crontab import CronTab
-from notification import Notifier
-
+#from notification import Notifier
+from pymongo import MongoClient
+import bleach
+from logs import LogsWriter
 
 class TimeKeeper:
     def __init__(self, config_path):
@@ -17,137 +18,136 @@ class TimeKeeper:
             CONFIG = json.load(file)
         self.config_path = config_path
         self.CONFIG = CONFIG
-        print('[WDB] Opened config json file.') if self.CONFIG['debug'] else None
+        self.logs = LogsWriter(self.CONFIG)
+        self.logs.debug('Opened config json file.')
         self.cron = CronTab(user=True)
-        self.__set_cron_scrap()
+        self.logs.info("Starting Twitter bio fetcher...")
         self.__start_process()
+        self.logs.info("Finished Twitter bio fetcher.")
         
 
-    def __set_cron_scrap(self):
-        print('[WDB] Setting cron task for tomorrow.') if self.CONFIG['debug'] else None 
-        job = self.cron.new(command=f"python3 {self.CONFIG['script_path']}") if self.CONFIG['debug'] else None
-        job.minute.on(0)
-        job.hour.on(0)
-        self.cron.write()
-        print(f"[WDB] Cron job set to run {self.CONFIG['script_path']} every day at midnight.") if self.CONFIG['debug'] else None
 
     def __start_process(self):
         scraper=Scraper(self.CONFIG)
         scraper.check_updates()
         self.CONFIG = scraper.close_twitter()
         self.__save_config()
-        if self.__is_certain_day(self.CONFIG['day_name']):
-            print("[WDB] Today is newsletter day, sending it.") if self.CONFIG['debug'] else None
-            self.__send_newsletter()
-            print("[WDB] Newsletter sent")
+        """if self.__is_certain_day(self.CONFIG['day_name']):
+            self.logs.debug("Today is newsletter day, sending it.")
+            #self.__send_newsletter()
+            self.logs.debug("Newsletter sent.")"""
     
-    def __send_newsletter(self):
+    """def __send_newsletter(self):
         entries = self.agg.get_aggregated_data() if self.CONFIG['debug'] else None
-        Notifier(self.CONFIG, entries)
+        Notifier(self.CONFIG, entries)"""
 
     def __save_config(self):
-        print('[WDB] Saving over CONFIG file.') if self.CONFIG['debug'] else None
+        self.logs.debug("Saving over CONFIG file.")
         with open(self.config_path, 'w') as file:
             json.dump(self.CONFIG, file)
-
+    """
     def __is_certain_day(self, day_name):
         current_day = datetime.today().strftime('%A')
-        return current_day.lower() == day_name.lower()
-
+        return current_day.lower() == day_name.lower()"""
 
 class BioAggregator:
-    def __init__(self, db_path):
-        self.db = TinyDB(db_path)
-        self.User = Query()
+    def __init__(self, db_url, db_name):
+        self.client = MongoClient(db_url)
+        self.db = self.client[db_name]
+        self.agg_collection = self.db['bios_agg']
 
-    def add_entry(self, user_id, name, old_bio, new_bio, twitter_name):
-        entry = {
-            'user_id': user_id,
-            'name': name,
-            'old_bio': old_bio,
-            'new_bio': new_bio,
-            'twitter_name': twitter_name,
-            'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        }
-        self.db.insert(entry)
+    def add_entry(self, entry):
+        self.agg_collection.insert_one(entry)
 
     def get_aggregated_data(self):
-        return self.db.all()
+        return list(self.agg_collection.find())
 
     def clear_data(self):
-        self.db.truncate()
+        self.agg_collection.delete_many({})
 
 
 class Scraper:
     def __init__(self, CONFIG):
         self.CONFIG = CONFIG
-        self.agg = BioAggregator(self.CONFIG['agg_db'])
+        self.logs = LogsWriter(self.CONFIG)
+        self.agg = BioAggregator(self.CONFIG['db_url'], self.CONFIG['db_name'])
         self.__get_proxy()
-        self.db = TinyDB(self.CONFIG['bio_db'])
-        self.User = Query()
-        print("[WDB] Setting up scrapper") if self.CONFIG['debug'] else None
+        self.client = MongoClient(self.CONFIG['db_url'])
+        self.db = self.client[self.CONFIG['db_name']]
+        self.logs.debug(f"Connecting to MongoDB {self.CONFIG['db_url']}.")
+        self.collection = self.db['twitter_bios']
+        self.logs.debug("Setting up scrapper")
         config.PROXY = {'http':f"socks5://{self.PROXY['username']}:{self.PROXY['password']}@{self.PROXY['ip']}:{self.PROXY['port']}",
                         'https':f"socks5://{self.PROXY['username']}:{self.PROXY['password']}@{self.PROXY['ip']}:{self.PROXY['port']}"}
         config.TIMEOUT = 10
         config.UPDATE_API = False
         twitter = TweeterPy()
         if CONFIG['session_path'] == 'None': 
-            print("[WDB] Logging on Twitter manually.") if self.CONFIG['debug'] else None
+            self.logs.debug("Logging on Twitter manually.")
             twitter.login(username = CONFIG['username'], password = CONFIG['password'], email = CONFIG['email'])
         else:
-            print("[WDB] Logging on Twitter with a session.") if self.CONFIG['debug'] else None
+            self.logs.debug("Logging on Twitter with a session.")
             twitter.load_session(CONFIG['session_path'])
         self.twitter=twitter
 
     def close_twitter(self):
-        print("[WDB] Closing twitter and saving session") if self.CONFIG['debug'] else None
+        self.logs.debug("Closing twitter and saving session")
         self.CONFIG['session_path'] = self.twitter.save_session()
+        self.client.close()
         return self.CONFIG
     
     def __get_bio_update(self, username):
         try:
-            print(f"[WDB] Attempting to get {username} bio...") if self.CONFIG['debug'] else None
+            self.logs.debug(f"Attempting to get {username} bio...")
             tt_data = self.twitter.get_user_info(username)
         except:
-            print(f"[WDB] Error with user {username}.") if self.CONFIG['debug'] else None
+            self.logs.debug(f"Error with user {username}.")
             return ''
-        return tt_data['legacy']['description']
+        return bleach.clean(tt_data['legacy']['description'])
     
     def init_bios(self): #Only to be used once when creating database
-        for entry in self.db.all():
+        for entry in self.collection.find():
             sleep(random.randint(self.CONFIG['min_wait'],self.CONFIG['max_wait']))
-            bio = self.get_bio_update(self.twitter, entry['twitter_username'])
-            self.db.update({'bio': bio}, self.User.userID == entry['userID'])
-            pass
+            bio = self.__get_bio_update(entry['twitter_username'])
+            self.collection.update_one({'userID': entry['userID']}, {'$set': {'bio': bleach.clean(bio)}})
         return self.close_twitter()
     
     def check_updates(self):
-        User = Query()
-        entries = self.db.all()
-        random.shuffle(entries)
+        entries = list(self.collection.find())
         TO_PROCESS=self.CONFIG['to_process']
-        print(f"[WDB] We have {TO_PROCESS} users to scan.") if self.CONFIG['debug'] else None
+        self.logs.info(f"Scanning {TO_PROCESS} users.") 
         for entry in entries:
-            if ((entry['activ']) and (entry['last_check']< (datetime.today() - timedelta(days=2)).strftime('%Y-%m-%d'))):
+            self.logs.debug(f"Checking {entry['name']}, last checked {entry['last_check']} and active {entry['activ']}")
+            if ((entry['activ']) and (entry['last_check']< (datetime.today() - timedelta(days=3)).strftime('%Y-%m-%d'))):
                 sleep(random.randint(self.CONFIG['min_wait'],self.CONFIG['max_wait']))
-                new_bio = self.__get_bio_update(self.twitter, entry['twitter_username'])
-                old_bio = self.db.search(self.User.userID==entry['userID'])[0]['bio']
-                if new_bio!=old_bio:
-                    self.agg.add_entry(entry['name'], old_bio, new_bio, entry['twitter_username'])
-                    print_notif(entry['name'], old_bio, new_bio, entry['twitter_username'])
-                self.db.update({'bio': new_bio, 'last_check': datetime.today().strftime('%Y-%m-%d')}, User.userID == entry['userID'])
-                TO_PROCESS=TO_PROCESS-1
+                try:
+                    new_bio = self.__get_bio_update(entry['twitter_username'])
+                    old_bio = bleach.clean(self.collection.find_one({'userID': entry['userID']})['bio'])
+                    if new_bio!=old_bio:
+                        entry['new_bio'] = new_bio
+                        entry['last_check'] = datetime.today().strftime('%Y-%m-%d')
+                        self.agg.add_entry(entry)
+                        self.__print_notif(entry['name'], old_bio, new_bio, entry['twitter_username'])
+                    self.collection.update_one({'userID': entry['userID']}, {'$set': {'bio': new_bio, 'last_check': datetime.today().strftime('%Y-%m-%d')}})
+                    TO_PROCESS=TO_PROCESS-1
+                except Exception as e:
+                    self.logs.critical(f"Failed to get bio update for {entry['twitter_username']}: {e}")
+                    continue
             if TO_PROCESS<=0:
                 break
-        print('Done for now. Going to sleep')
+        self.logs.info('Done with scrapping !')
         return self.close_twitter()
 
     def __get_proxy(self):
-        response = requests.get(
-            "https://proxy.webshare.io/api/v2/proxy/list/?mode=direct&page=1&page_size=25",
-            headers={"Authorization": f"Token {self.CONFIG['webshare_token']}"}
-        )
-        print(response.json())
+        try:
+            response = requests.get(
+                "https://proxy.webshare.io/api/v2/proxy/list/?mode=direct&page=1&page_size=25",
+                headers={"Authorization": f"Token {self.CONFIG['webshare_token']}"}
+            )
+            response.raise_for_status()  # Raise an HTTPError for bad responses
+        except requests.RequestException as e:
+            self.logs.critical(f"Failed to get proxy: {e}")
+            return
         PROXY = {
             'ip' : response.json()['results'][0]['proxy_address'],
             'port' : response.json()['results'][0]['port'],
@@ -156,9 +156,7 @@ class Scraper:
         }
         self.PROXY = PROXY
 
+    def __print_notif(self, Name, old_bio, new_bio, twitter_name):
+        self.logs.info(f"Got a hit with {Name} - {twitter_name}, old bio was : {old_bio}, new bio is : {new_bio}")
     
-def print_notif(Name, old_bio, new_bio, twitter_name):
-    print(f"Got a hit with {Name} - {twitter_name}, old bio was : {old_bio}, new bio is : {new_bio}")
-    
-
 TimeKeeper("/mnt/2To/jupyter_data/FTM/Revolving_doors/config.json")
