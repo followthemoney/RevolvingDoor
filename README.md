@@ -30,6 +30,30 @@ One docker handles the database (running MongoDB), the other docker runs the cod
 
 All parameters, twitter logins, web UI logins, API keys are stored in a config file. 
 
+### MongoDB Docker and Database
+The database is available for direct download, it need to be imported in a [MongoDB](https://www.mongodb.com/docs/manual/tutorial/install-mongodb-community-with-docker/) docker.
+
+
+```
+mkdir database
+cd database
+wget https://drive.google.com/uc?export=download&id=1Pp6xUYeom6NvKU4AM9nI33hDPHyLcAlJ
+unzip data.zip -d to_import
+
+```
+Pull the latest image of MongoDB:
+```
+docker pull mongodb/mongodb-community-server:latest
+```
+Run the image:
+```
+docker run --name mongodb -p 27017:27017 -d mongodb/mongodb-community-server:latest
+```
+Add the database to the docker
+```
+docker exec mongodb mongorestore --db production /to_import
+```
+
 ## TODO
 1. Dockerize the custom codes.
 2. Add the ability to manually add people to stalk ?
