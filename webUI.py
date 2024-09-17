@@ -121,6 +121,11 @@ def get_logs():
     
     return jsonify(log_data)
 
+@app.route('/clear_logs', methods=['GET'])
+def clear_logs():
+    col_logs = db['logs']
+    col_logs.delete_many({})
+    return jsonify({'success': True, 'message': 'All logs have been cleared.'})
 
 if __name__ == '__main__':
     logger.info("Webserver - Starting Flask server")
