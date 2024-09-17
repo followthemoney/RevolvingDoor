@@ -17,7 +17,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 VOLUME [ "/usr/src/app/config.json", "/usr/src/app/twitterpy.log"]
 
 # Expose port 8080 for the webUI inside the container
-EXPOSE 5000
+EXPOSE 8080
 
 # Install cron and supervisor for managing the tasks
 RUN apt-get update && apt-get install -y cron supervisor

@@ -3,7 +3,7 @@ services:
   webui:
     build: .
     ports:
-      - "5000:5000"  # Map external port 5000 to internal port 8080
+      - "8080:8080"  # Map external port 5000 to internal port 8080
     volumes:
       - ./config.json:/usr/src/app/config.json  # Make config.json editable from outside the container
       - ./twitterpy.log:/usr/src/app/twitterpy.log  # Make twitterpy.log viewable from outside the container
