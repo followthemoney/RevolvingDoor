@@ -49,12 +49,14 @@ The database is available for direct download, it need to be imported in a [Mong
 ```
 mkdir database
 cd database
-wget https://drive.google.com/uc?export=download&id=1Pp6xUYeom6NvKU4AM9nI33hDPHyLcAlJ
-unzip data.zip -d to_import
-
+curl -L 'https://drive.google.com/uc?export=download&id=1Pp6xUYeom6NvKU4AM9nI33hDPHyLcAlJ' -o backup.zip
+unzip backup.zip
+cd database2/backup
+```
 Add the database to the docker
 ```
-docker exec revolving_door mongorestore --db production /to_import
+docker cp production/ revolvingdoor-master-mongodb:/to_import
+docker exec revolvingdoor-master-mongodb-1 mongorestore --db production /to_import
 ```
 
 ### Setup the configuration file
@@ -65,7 +67,7 @@ You will need:
 2. A Webshare.io API key to get a proxy.
 3. You need to generate a [Flask Secret Key](https://whiztal.io/secret-key-generation-for-django-and-flask/).
 
-
+Edit the public IP of the machine running the code in the main function of webUI.py.
 
 
 ## TODO
