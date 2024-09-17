@@ -110,7 +110,7 @@ def get_logs():
     if log_types:
         query = {'type': {'$in': log_types}}
 
-    logs = list(db['logs'].find(query))
+    logs = list(db['logs'].find(query).sort('date', -1))  # Sort logs by date in descending order
     log_data = []
     for log in logs:
         log_data.append({
