@@ -50,4 +50,4 @@ class NewsChecker:
             sleep(self.wait_between_fetch)
 
 
-NewsChecker('/mnt/2To/jupyter_data/FTM/Revolving_doors/config.json')
+NewsChecker('./config.json')

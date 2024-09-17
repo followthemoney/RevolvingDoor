@@ -2,8 +2,11 @@
 Application tracking MEPs that left the European parliament after the 9th term.
 
 Features :
-1. Detecting changes in Twitter bios
-2. Detecting news from Google alerts
+1. Detecting changes in Twitter bios.
+    1. Filter by name
+    2. Disable/Enable a profile.
+2. Getting news from Google alerts.
+    1. Filter by date.
 
 ## Login page
 Protected login to prevent. Login is shared between users for now.
@@ -30,6 +33,15 @@ One docker handles the database (running MongoDB), the other docker runs the cod
 
 All parameters, twitter logins, web UI logins, API keys are stored in a config file. 
 
+### Compose a Docker image
+```
+docker compose build
+```
+
+```
+docker compose up
+```
+
 ### MongoDB Docker and Database
 The database is available for direct download, it need to be imported in a [MongoDB](https://www.mongodb.com/docs/manual/tutorial/install-mongodb-community-with-docker/) docker.
 
@@ -40,19 +52,21 @@ cd database
 wget https://drive.google.com/uc?export=download&id=1Pp6xUYeom6NvKU4AM9nI33hDPHyLcAlJ
 unzip data.zip -d to_import
 
-```
-Pull the latest image of MongoDB:
-```
-docker pull mongodb/mongodb-community-server:latest
-```
-Run the image:
-```
-docker run --name mongodb -p 27017:27017 -d mongodb/mongodb-community-server:latest
-```
 Add the database to the docker
 ```
-docker exec mongodb mongorestore --db production /to_import
+docker exec revolving_door mongorestore --db production /to_import
 ```
+
+### Setup the configuration file
+Edits fields in config_example.json and rename it config.json
+
+You will need:
+1. A twitter account. Don't use your account, you may get banned.
+2. A Webshare.io API key to get a proxy.
+3. You need to generate a [Flask Secret Key](https://whiztal.io/secret-key-generation-for-django-and-flask/).
+
+
+
 
 ## TODO
 1. Dockerize the custom codes.

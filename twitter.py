@@ -159,4 +159,4 @@ class Scraper:
     def __print_notif(self, Name, old_bio, new_bio, twitter_name):
         self.logs.info(f"Got a hit with {Name} - {twitter_name}, old bio was : {old_bio}, new bio is : {new_bio}")
     
-TimeKeeper("/mnt/2To/jupyter_data/FTM/Revolving_doors/config.json")
+TimeKeeper("./config.json")

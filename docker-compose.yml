@@ -1,0 +1,25 @@
+version: '3'
+services:
+  webui:
+    build: .
+    ports:
+      - "5000:5000"  # Map external port 5000 to internal port 8080
+    volumes:
+      - ./config.json:/usr/src/app/config.json  # Make config.json editable from outside the container
+      - ./twitterpy.log:/usr/src/app/twitterpy.log  # Make twitterpy.log viewable from outside the container
+    networks:
+      - RDW_network  # Connect to the same network as MongoDB
+    environment:
+      - MONGO_URI=mongodb://mongodb:27017  # MongoDB connection string
+    restart: always  # Ensure webUI.py restarts on crash
+    
+  mongodb:
+    image: mongo:latest
+    ports:
+      - "27017:27017"  # Expose MongoDB
+    networks:
+      - RDW_network  # Make sure MongoDB is on the same network
+
+networks:
+  RDW_network:
+    driver: bridge

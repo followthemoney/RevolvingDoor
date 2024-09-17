@@ -3,17 +3,17 @@ from pymongo import MongoClient
 from bson import ObjectId
 import os, json, signal
 from logs import LogsWriter
+from waitress import serve
 
 app = Flask(__name__)
-config_path = '/mnt/2To/jupyter_data/FTM/Revolving_doors/config.json'
+config_path = './config.json'
 with open(config_path, 'r') as file:
     CONFIG = json.load(file)
-app.secret_key = CONFIG["flask_secret_key"]
 
+app.secret_key = CONFIG["flask_secret_key"]
 
 # Initialize LogsWriter
 logger = LogsWriter(CONFIG)
-
 # MongoDB connection
 client = MongoClient(CONFIG['db_url'])
 db = client[CONFIG['db_name']]
@@ -124,5 +124,6 @@ def get_logs():
 
 if __name__ == '__main__':
     logger.info("Webserver - Starting Flask server")
-    app.run(debug=True, port=5000)
+    serve(app, host='0.0.0.0', port = 5000)
+    #app.run(debug=True, port=5000)
     logger.info("Webserver - Flask server started")
