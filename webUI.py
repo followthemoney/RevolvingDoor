@@ -129,6 +129,6 @@ def clear_logs():
 
 if __name__ == '__main__':
     logger.info("Webserver - Starting Flask server")
-    serve(app, host='0.0.0.0', port = 8008)
+    serve(app, host='0.0.0.0', port = 8080)
     #app.run(debug=True, port=5000)
     logger.info("Webserver - Flask server started")
