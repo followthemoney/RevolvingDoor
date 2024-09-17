@@ -121,7 +121,7 @@ def get_logs():
     
     return jsonify(log_data)
 
-@app.route('/clear_logs', methods=['GET'])
+@app.route('/clear_logs', methods=['POST'])
 def clear_logs():
     col_logs = db['logs']
     col_logs.delete_many({})
