@@ -1,0 +1,8 @@
+bleach==6.1.0
+feedparser==6.0.11
+Flask==3.0.3
+pymongo==4.8.0
+python_crontab==3.2.0
+requests[socks]
+tweeterpy==1.2.4
+waitress==3.0.0
