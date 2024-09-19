@@ -97,7 +97,7 @@ def get_people_news():
         if len(person_data['news']) > 0:
             results.append(person_data)
 
-    logger.debug("Webserver - People news fetched successfully")
+    logger.debug("WEB - People news fetched successfully")
     return jsonify(results)
 
 @app.route('/get_logs', methods=['GET'])
@@ -169,7 +169,7 @@ def add_user():
             'activ' : True,
             'bio' : ''
         }
-        logger.info(f'Adding user {twitter_bio_data["name"]} to Twitter database')
+        logger.info(f'WEB - Adding user {twitter_bio_data["name"]} to Twitter database')
         # Insert into the twitter_bios collection
         collection.insert_one(twitter_bio_data)
     if data.get('googleAlertFeed'):
@@ -182,7 +182,7 @@ def add_user():
             'rss': data['googleAlertFeed'],
             'activ' : True
         }
-        logger.info(f'Adding user {rss_feed_data["full_name"]} to Google Alerts database')
+        logger.info(f'WEB - Adding user {rss_feed_data["full_name"]} to Google Alerts database')
 
         # Insert into the rss_feeds collection
         ppfeed.insert_one(rss_feed_data)
@@ -226,9 +226,9 @@ def delete_user(col, userID):
         return jsonify({'success': False, 'message': 'User not found'}), 404
     
 if __name__ == '__main__':
-    logger.info("Webserver - Starting Flask server")
+    logger.info("WEB - Starting Flask server")
     try:
-        serve(app, host='0.0.0.0', port = 8080)
+        serve(app, host='0.0.0.0', port = 8080, url_scheme='https')
         #app.run(debug=True, port=5000)
     except Exception as e:
-        logger.critical(f"Webserver died due to: {e}")
+        logger.critical(f"WEB - Webserver died due to: {e}")
