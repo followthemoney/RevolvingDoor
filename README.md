@@ -7,6 +7,7 @@ Features :
     2. Disable/Enable a profile.
 2. Getting news from Google alerts.
     1. Filter by date.
+3. Manually add people to the Twitter or Google Alerts watch.
 
 ## Login page
 Protected login to prevent. Login is shared between users for now.
@@ -23,6 +24,11 @@ Highlight difference in bios that could reflect a change of job title.
 ## News aggregation
 Shows all recent news from each MEPs. Allows user to filer by date.
 ![image](img/RDW_News.png)
+
+## Add new users
+This page allows to add new user to watch over. You need to input the Twitter username or/and Google Alerts RSS url.
+You can also delete any custom users added.
+![image](img/RDW_add_user.png)
 
 ## Installation
 One docker handles the database (running MongoDB), the other docker runs the code of:
@@ -71,6 +77,4 @@ Edit the public IP of the machine running the code in the main function of webUI
 
 
 ## TODO
-1. Dockerize the custom codes.
-2. Add the ability to manually add people to stalk ?
-3. Add alerts when name are detected in other datasets ?
+1. Add alerts when name are detected in other datasets ?
