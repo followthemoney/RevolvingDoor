@@ -55,7 +55,7 @@ cd database2/backup
 ```
 Add the database to the docker
 ```
-docker cp production/ revolvingdoor-master-mongodb:/to_import
+docker cp production/ revolvingdoor-master-mongodb-1:/to_import
 docker exec revolvingdoor-master-mongodb-1 mongorestore --db production /to_import
 ```
 
