@@ -4,7 +4,7 @@ from bson import ObjectId
 import os, json, signal
 from logs import LogsWriter
 from waitress import serve
-
+from datetime import datetime, timedelta
 app = Flask(__name__)
 config_path = './config.json'
 with open(config_path, 'r') as file:
@@ -127,8 +127,108 @@ def clear_logs():
     col_logs.delete_many({})
     return jsonify({'success': True, 'message': 'All logs have been cleared.'})
 
+@app.route('/clear_agg', methods=['POST'])
+def clear_agg():
+    bios_agg_collection.delete_many({})
+    return jsonify({'success': True, 'message': 'All differences have been cleared.'})
+
+
+@app.route('/add_user', methods=['POST'])
+def add_user():
+    data = request.get_json()
+
+    # Ensure Name is provided
+    if not data.get('name'):
+        return jsonify({'success': False, 'message': 'Name is required'})
+
+    # Ensure either Twitter Username or Google Alert Feed is provided
+    if not data.get('twitterUsername') and not data.get('googleAlertFeed'):
+        return jsonify({'success': False, 'message': 'At least one of Twitter Username and/or Google Alert Feed is required'})
+
+    # Get the latest userID from the twitter_bios collection
+    last_user = collection.find_one({"userID": {"$regex": "^EXTRA"}}, sort=[("userID", -1)])
+    if last_user:
+        last_user_id = last_user['userID']
+        new_user_id = f"EXTRA{int(last_user_id.replace('EXTRA', '')) + 1:04}"
+    else:
+        new_user_id = 'EXTRA0000'
+    if data['photoUrl'] == '':
+        data['photoUrl'] = 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_960_720.png'
+    if data['profileUrl'] == '':
+        data['profileUrl'] = 'ftm.eu'
+    
+    if data.get('twitterUsername'):
+        # Prepare data for the twitter_bios collection
+        twitter_bio_data = {
+            'userID': new_user_id,
+            'name': data['name'],
+            'meta': {'url':data['profileUrl']},
+            'photo': data['photoUrl'],
+            'twitter_username': data['twitterUsername'],
+            'last_check': (datetime.now() - timedelta(weeks=1)).strftime('%Y-%m-%d'),
+            'activ' : True,
+            'bio' : ''
+        }
+        logger.info(f'Adding user {twitter_bio_data["name"]} to Twitter database')
+        # Insert into the twitter_bios collection
+        collection.insert_one(twitter_bio_data)
+    if data.get('googleAlertFeed'):
+        # Prepare data for the rss_feeds collection
+        rss_feed_data = {
+            'userID': new_user_id,
+            'full_name': data['name'],
+            'meta' : {'url' : data['photoUrl']},
+            'photo': data['photoUrl'],
+            'rss': data['googleAlertFeed'],
+            'activ' : True
+        }
+        logger.info(f'Adding user {rss_feed_data["full_name"]} to Google Alerts database')
+
+        # Insert into the rss_feeds collection
+        ppfeed.insert_one(rss_feed_data)
+
+    return jsonify({'success': True})
+
+# Fetch all users from twitter_bios collection with userID starting with EXTRA
+@app.route('/get_twitter_bios_extra', methods=['GET'])
+def get_twitter_bios_extra():
+    users = list(collection.find({'userID': {'$regex': '^EXTRA'}}))
+    return jsonify([{
+        'userID': user['userID'],
+        'name': user['name'] + ' ' + user['userID'],
+        'photo': user.get('photo', ''),
+        'twitter_username': user.get('twitter_username', '')
+    } for user in users])
+
+# Fetch all users from rss_feeds (ppfeed) collection with userID starting with EXTRA
+@app.route('/get_rss_feeds_extra', methods=['GET'])
+def get_rss_feeds_extra():
+    users = list(ppfeed.find({'userID': {'$regex': '^EXTRA'}}))
+    return jsonify([{
+        'userID': user['userID'],
+        'name': user['full_name'] + ' ' + user['userID'],
+        'photo': user.get('photo', '')
+    } for user in users])
+
+# Delete user from the appropriate collection
+@app.route('/delete_user/<col>/<userID>', methods=['DELETE'])
+def delete_user(col, userID):
+    if col == 'twitter':
+        result = collection.delete_one({'userID': userID})
+    elif col == 'rss':
+        result = ppfeed.delete_one({'userID': userID})
+    else:
+        return jsonify({'success': False, 'message': 'Invalid collection'}), 400
+    
+    if result.deleted_count > 0:
+        return jsonify({'success': True})
+    else:
+        return jsonify({'success': False, 'message': 'User not found'}), 404
+    
 if __name__ == '__main__':
     logger.info("Webserver - Starting Flask server")
-    serve(app, host='0.0.0.0', port = 8080)
-    #app.run(debug=True, port=5000)
-    logger.info("Webserver - Flask server started")
+    try:
+        serve(app, host='0.0.0.0', port = 8080)
+        #app.run(debug=True, port=5000)
+    except Exception as e:
+        logger.critical(f"Webserver died due to: {e}")
