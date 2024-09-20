@@ -20,14 +20,14 @@ class NewsChecker:
         self.col_entries = self.db['rss_entries']
         self.wait_between_fetch = CONFIG['RSS_wait_betwen_fetch']
         self.logs = LogsWriter(CONFIG)
-        self.logs.info("Starting Google Alerts RSS Fetcher...")
+        self.logs.info("RSS - Starting Google Alerts RSS Fetcher...")
         self.url_proxies = []
         for prox in self.__get_proxies():
             self.url_proxies.append({'http':f"socks5://{prox['username']}:{prox['password']}@{prox['ip']}:{prox['port']}",
                     'https':f"socks5://{prox['username']}:{prox['password']}@{prox['ip']}:{prox['port']}"})
 
         self.__check()
-        self.logs.info("Finished with Google Alerts RSS Fetcher.")
+        self.logs.info("RSS - Finished with Google Alerts RSS Fetcher.")
 
     def get_entries(self):
         return list(self.col_entries.find())
@@ -43,10 +43,10 @@ class NewsChecker:
             PROXY_DATA = random.choice(self.url_proxies)
             proxy_handler = ProxyHandler(PROXY_DATA) #ADD PROXY
             feed = feedparser.parse(entry['rss'], handlers=[proxy_handler])
-            self.logs.debug(f"Looking for news from {entry['full_name']}.")
+            self.logs.debug(f"RSS - Looking for news from {entry['full_name']}.")
             for rss_element in feed.entries:
                 if not self.__already_exist(entry['userID'], hashlib.md5(rss_element.link.encode('utf-8')).hexdigest()):
-                    self.logs.debug(f"Adding News entry for {entry['full_name']}")
+                    self.logs.debug(f"RSS - Adding News entry for {entry['full_name']}")
                     new_entry = {
                         'userID' : entry['userID'],
                         'full_name' : entry['full_name'],
@@ -80,4 +80,4 @@ class NewsChecker:
         return PROXIES
 
 
-NewsChecker('./config_beta.json')
+NewsChecker('./config.json')
