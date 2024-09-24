@@ -19,11 +19,11 @@ class TimeKeeper:
         self.config_path = config_path
         self.CONFIG = CONFIG
         self.logs = LogsWriter(self.CONFIG)
-        self.logs.debug('Opened config json file.')
+        self.logs.debug('TWITTER - Opened config json file.')
         self.cron = CronTab(user=True)
-        self.logs.info("Starting Twitter bio fetcher...")
+        self.logs.info("TWITTER - Starting Twitter bio fetcher...")
         self.__start_process()
-        self.logs.info("Finished Twitter bio fetcher.")
+        self.logs.info("TWITTER - Finished Twitter bio fetcher.")
         
 
 
@@ -32,23 +32,11 @@ class TimeKeeper:
         scraper.check_updates()
         self.CONFIG = scraper.close_twitter()
         self.__save_config()
-        """if self.__is_certain_day(self.CONFIG['day_name']):
-            self.logs.debug("Today is newsletter day, sending it.")
-            #self.__send_newsletter()
-            self.logs.debug("Newsletter sent.")"""
-    
-    """def __send_newsletter(self):
-        entries = self.agg.get_aggregated_data() if self.CONFIG['debug'] else None
-        Notifier(self.CONFIG, entries)"""
 
     def __save_config(self):
         self.logs.debug("Saving over CONFIG file.")
         with open(self.config_path, 'w') as file:
             json.dump(self.CONFIG, file)
-    """
-    def __is_certain_day(self, day_name):
-        current_day = datetime.today().strftime('%A')
-        return current_day.lower() == day_name.lower()"""
 
 class BioAggregator:
     def __init__(self, db_url, db_name):
@@ -74,34 +62,34 @@ class Scraper:
         self.__get_proxy()
         self.client = MongoClient(self.CONFIG['db_url'])
         self.db = self.client[self.CONFIG['db_name']]
-        self.logs.debug(f"Connecting to MongoDB {self.CONFIG['db_url']}.")
+        self.logs.debug(f"TWITTER - Connecting to MongoDB {self.CONFIG['db_url']}.")
         self.collection = self.db['twitter_bios']
-        self.logs.debug("Setting up scrapper")
+        self.logs.debug("TWITTER - Setting up scrapper")
         config.PROXY = {'http':f"socks5://{self.PROXY['username']}:{self.PROXY['password']}@{self.PROXY['ip']}:{self.PROXY['port']}",
                         'https':f"socks5://{self.PROXY['username']}:{self.PROXY['password']}@{self.PROXY['ip']}:{self.PROXY['port']}"}
         config.TIMEOUT = 10
         config.UPDATE_API = False
         twitter = TweeterPy()
         if CONFIG['session_path'] == 'None': 
-            self.logs.debug("Logging on Twitter manually.")
+            self.logs.debug("TWITTER - Logging on Twitter manually.")
             twitter.login(username = CONFIG['username'], password = CONFIG['password'], email = CONFIG['email'])
         else:
-            self.logs.debug("Logging on Twitter with a session.")
+            self.logs.debug("TWITTER - Logging on Twitter with a session.")
             twitter.load_session(CONFIG['session_path'])
         self.twitter=twitter
 
     def close_twitter(self):
-        self.logs.debug("Closing twitter and saving session")
+        self.logs.debug("TWITTER - Closing twitter and saving session")
         self.CONFIG['session_path'] = self.twitter.save_session()
         self.client.close()
         return self.CONFIG
     
     def __get_bio_update(self, username):
         try:
-            self.logs.debug(f"Attempting to get {username} bio...")
+            self.logs.debug(f"TWITTER - Attempting to get {username} bio...")
             tt_data = self.twitter.get_user_info(username)
         except:
-            self.logs.debug(f"Error with user {username}.")
+            self.logs.debug(f"TWITTER - Error with user {username}.")
             return ''
         return bleach.clean(tt_data['legacy']['description'])
     
@@ -115,9 +103,9 @@ class Scraper:
     def check_updates(self):
         entries = list(self.collection.find())
         TO_PROCESS=self.CONFIG['to_process']
-        self.logs.info(f"Scanning {TO_PROCESS} users.") 
+        self.logs.info(f"TWITTER - Scanning {TO_PROCESS} users.") 
         for entry in entries:
-            self.logs.debug(f"Checking {entry['name']}, last checked {entry['last_check']} and active {entry['activ']}")
+            self.logs.debug(f"TWITTER - Checking {entry['name']}, last checked {entry['last_check']} and active {entry['activ']}")
             if ((entry['activ']) and (entry['last_check']< (datetime.today() - timedelta(days=3)).strftime('%Y-%m-%d'))):
                 sleep(random.randint(self.CONFIG['min_wait'],self.CONFIG['max_wait']))
                 try:
@@ -131,11 +119,11 @@ class Scraper:
                     self.collection.update_one({'userID': entry['userID']}, {'$set': {'bio': new_bio, 'last_check': datetime.today().strftime('%Y-%m-%d')}})
                     TO_PROCESS=TO_PROCESS-1
                 except Exception as e:
-                    self.logs.critical(f"Failed to get bio update for {entry['twitter_username']}: {e}")
+                    self.logs.error(f"TWITTER - Failed to get bio update for {entry['twitter_username']}: {e}")
                     continue
             if TO_PROCESS<=0:
                 break
-        self.logs.info('Done with scrapping !')
+        self.logs.info('TWITTER - Done with scrapping !')
         return self.close_twitter()
 
     def __get_proxy(self):
@@ -146,7 +134,7 @@ class Scraper:
             )
             response.raise_for_status()  # Raise an HTTPError for bad responses
         except requests.RequestException as e:
-            self.logs.critical(f"Failed to get proxy: {e}")
+            self.logs.critical(f"TWITTER - Failed to get proxy: {e}")
             return
         PROXY = {
             'ip' : response.json()['results'][0]['proxy_address'],
@@ -157,6 +145,6 @@ class Scraper:
         self.PROXY = PROXY
 
     def __print_notif(self, Name, old_bio, new_bio, twitter_name):
-        self.logs.info(f"Got a hit with {Name} - {twitter_name}, old bio was : {old_bio}, new bio is : {new_bio}")
+        self.logs.info(f"TWITTER - Got a hit with {Name} - {twitter_name}, old bio was : {old_bio}, new bio is : {new_bio}")
     
 TimeKeeper("./config.json")

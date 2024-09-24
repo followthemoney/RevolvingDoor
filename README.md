@@ -8,6 +8,7 @@ Features :
 2. Getting news from Google alerts.
     1. Filter by date.
 3. Manually add people to the Twitter or Google Alerts watch.
+    1. Add a subject to classify by investigation. 
 
 ## Login page
 Protected login to prevent. Login is shared between users for now.

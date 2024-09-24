@@ -76,7 +76,6 @@ def toggle_activ(id):
 def get_people_news():
     people = list(ppfeed.find())
     results = []
-
     for person in people:
         user_id = person['userID']
         news_entries = list(newsfeed.find({'userID': user_id}))
@@ -84,7 +83,8 @@ def get_people_news():
             'name': person['full_name'],
             'photo': person['photo'],
             'profile_url': person['meta']['url'],
-            'news': []
+            'news': [],
+            'subject' : person['subject']
         }
 
         for news in news_entries:
@@ -136,7 +136,6 @@ def clear_agg():
 @app.route('/add_user', methods=['POST'])
 def add_user():
     data = request.get_json()
-
     # Ensure Name is provided
     if not data.get('name'):
         return jsonify({'success': False, 'message': 'Name is required'})
@@ -166,6 +165,7 @@ def add_user():
             'photo': data['photoUrl'],
             'twitter_username': data['twitterUsername'],
             'last_check': (datetime.now() - timedelta(weeks=1)).strftime('%Y-%m-%d'),
+            'subject' : data['subject'],
             'activ' : True,
             'bio' : ''
         }
@@ -180,6 +180,7 @@ def add_user():
             'meta' : {'url' : data['photoUrl']},
             'photo': data['photoUrl'],
             'rss': data['googleAlertFeed'],
+            'subject' : data['subject'],
             'activ' : True
         }
         logger.info(f'WEB - Adding user {rss_feed_data["full_name"]} to Google Alerts database')
@@ -195,9 +196,10 @@ def get_twitter_bios_extra():
     users = list(collection.find({'userID': {'$regex': '^EXTRA'}}))
     return jsonify([{
         'userID': user['userID'],
-        'name': user['name'] + ' ' + user['userID'],
+        'name': user['name'],# + ' ' + user['userID'],
         'photo': user.get('photo', ''),
-        'twitter_username': user.get('twitter_username', '')
+        'twitter_username': user.get('twitter_username', ''),
+        'subject' : user.get('subject')
     } for user in users])
 
 # Fetch all users from rss_feeds (ppfeed) collection with userID starting with EXTRA
@@ -206,8 +208,9 @@ def get_rss_feeds_extra():
     users = list(ppfeed.find({'userID': {'$regex': '^EXTRA'}}))
     return jsonify([{
         'userID': user['userID'],
-        'name': user['full_name'] + ' ' + user['userID'],
-        'photo': user.get('photo', '')
+        'name': user['full_name'],# + ' ' + user['userID'],
+        'photo': user.get('photo', ''),
+        'subject' : user.get('subject')
     } for user in users])
 
 # Delete user from the appropriate collection
@@ -225,6 +228,21 @@ def delete_user(col, userID):
     else:
         return jsonify({'success': False, 'message': 'User not found'}), 404
     
+@app.route('/get_unique_subjects_twitter', methods=['GET'])
+def get_unique_subjects_twitter():
+    subjects = collection.distinct('subject')
+    return jsonify(subjects)
+
+@app.route('/get_unique_subjects_bios_agg', methods=['GET'])
+def get_unique_subjects_bios_agg():
+    subjects = bios_agg_collection.distinct('subject')
+    return jsonify(subjects)
+
+@app.route('/get_unique_subjects_rss', methods=['GET'])
+def get_unique_subjects_rss():
+    subjects = ppfeed.distinct('subject')
+    return jsonify(subjects)
+
 if __name__ == '__main__':
     logger.info("WEB - Starting Flask server")
     try:

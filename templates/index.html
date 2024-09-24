@@ -57,10 +57,7 @@
         table, th, td {
             border: 1px solid #ddd;
         }
-        th, td {
-            padding: 8px;
-            text-align: left;
-        }
+
         th {
             background-color: #f4f4f4;
         }
@@ -381,24 +378,12 @@
             }
         }
 
-        table {
-        width: 100%;
-        border-collapse: collapse;
-        margin-top: 20px;
-        }
-
-        table, th, td {
-            border: 1px solid #ddd;
-        }
 
         th, td {
             padding: 10px;
             text-align: left;
         }
 
-        th {
-            background-color: #f4f4f4;
-        }
 
         td img.profile-img {
             width: 50px;
@@ -478,17 +463,14 @@
             document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
             document.querySelector(`[data-tab="${tabId}"]`).classList.add('active');
 
-            // Show filter only for Tab 3
-            if (tabId === 'tab3') {
-                document.getElementById('filter-container').style.display = 'block';
-                loadPeopleNews();  // Load people news when tab 3 is activated
-            } else {
-                document.getElementById('filter-container').style.display = 'none';
-            }
-
-            // Load logs when Tab 4 (Logs) is activated
-            if (tabId === 'tab4') {
-                loadLogs();
+            // Load subjects and apply filter for each tab
+            if (tabId === 'tab1') {
+                loadTwitterSubjects().then(() => filterBySubject('twitterTable'));  // Load subjects and filter table
+            } else if (tabId === 'tab2') {
+                loadBiosAggSubjects().then(() => filterBySubject('biosAggTable'));  // Load subjects and filter table
+            } else if (tabId === 'tab3') {
+                loadPeopleNews();  
+                loadRssSubjects().then(() => filterBySubject('people-news-table'));  // Load subjects and filter table
             }
         }
 
@@ -528,6 +510,7 @@
                                     `).join('')}
                                 </ul>
                             </td>
+                            <td>${person.subject || 'N/A'}</td>
                         `;
 
                         container.appendChild(row);
@@ -711,7 +694,7 @@
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
-                    name, profileUrl, photoUrl, twitterUsername, googleAlertFeed 
+                    name, profileUrl, photoUrl, twitterUsername, googleAlertFeed, subject  
                 })
             }).then(response => response.json())
             .then(data => {
@@ -751,7 +734,8 @@
                                 <a href="https://x.com/${user.twitter_username}" target="_blank">
                                     <img src="https://cdn-icons-png.freepik.com/256/3670/3670211.png?semt=ais_hybrid" alt="Twitter" class="twitter-logo">
                                 </a>
-                            </td>                            
+                            </td>          
+                            <td>${user.subject || 'N/A'}</td>                   
                             <td><img src="/static/delete.svg" class="delete-icon" onclick="deleteUser('twitter', '${user.userID}')"></td>
                         `;
                         tableBody.appendChild(row);
@@ -781,6 +765,7 @@
                                     <a href="${user.profile_url}" target="_blank">${user.name}</a>
                                 </div>
                             </td>
+                            <td>${user.subject || 'N/A'}</td> 
                             <td><img src="/static/delete.svg" class="delete-icon" onclick="deleteUser('rss', '${user.userID}')"></td>
                         `;
                         tableBody.appendChild(row);
@@ -804,13 +789,90 @@
                 });
             }
         }
+        function loadTwitterSubjects() {
+            return fetch('/get_unique_subjects_twitter')
+                .then(response => response.json())
+                .then(subjects => {
+                    const subjectFilter = document.getElementById('subjectFilterTab1');
+                    subjectFilter.innerHTML = '<option value="">All</option>';  // Reset dropdown
+
+                    subjects.forEach(subject => {
+                        const option = document.createElement('option');
+                        option.value = subject;
+                        option.textContent = subject;
+                        subjectFilter.appendChild(option);
+                    });
+                })
+                .catch(error => {
+                    console.error('Error fetching unique subjects for Twitter:', error);
+                });
+        }
+        function loadBiosAggSubjects() {
+            return fetch('/get_unique_subjects_bios_agg')
+                .then(response => response.json())
+                .then(subjects => {
+                    const subjectFilter = document.getElementById('subjectFilterTab2');
+                    subjectFilter.innerHTML = '<option value="">All</option>';  // Reset dropdown
+
+                    subjects.forEach(subject => {
+                        const option = document.createElement('option');
+                        option.value = subject;
+                        option.textContent = subject;
+                        subjectFilter.appendChild(option);
+                    });
+                })
+                .catch(error => {
+                    console.error('Error fetching unique subjects for Bio Difference:', error);
+                });
+        }
+        function loadRssSubjects() {
+            return fetch('/get_unique_subjects_rss')
+                .then(response => response.json())
+                .then(subjects => {
+                    const subjectFilter = document.getElementById('subjectFilterTab3');
+                    subjectFilter.innerHTML = '<option value="">All</option>';  // Reset dropdown
+
+                    subjects.forEach(subject => {
+                        const option = document.createElement('option');
+                        option.value = subject;
+                        option.textContent = subject;
+                        subjectFilter.appendChild(option);
+                    });
+                })
+                .catch(error => {
+                    console.error('Error fetching unique subjects for RSS Feeds:', error);
+                });
+        }
+
         // Call functions to load tables on page load
     loadTwitterBios();
     loadRssFeeds();
+    function filterBySubject(tableId) {
+        let subjectFilter;
+        // Determine which filter to use based on the table ID
+        if (tableId === 'twitterTable') {
+            subjectFilter = document.getElementById('subjectFilterTab1');
+        } else if (tableId === 'biosAggTable') {
+            subjectFilter = document.getElementById('subjectFilterTab2');
+        } else if (tableId === 'people-news-table') {
+            subjectFilter = document.getElementById('subjectFilterTab3');
+        }
+
+        const selectedSubject = subjectFilter.value.toLowerCase();  // Get selected subject
+        const rows = document.querySelectorAll(`#${tableId} tbody tr`);  // Get all rows in the table
+        // Loop through each row and filter based on the subject
+        rows.forEach(row => {
+            const subjectCell = row.querySelector('td:nth-child(4)').textContent.toLowerCase();  // Get the subject text in the 3rd column
+            if (selectedSubject === '' || subjectCell.includes(selectedSubject)) {
+                row.style.display = '';  // Show the row if subject matches or 'All' is selected
+            } else {
+                row.style.display = 'none';  // Hide the row if subject doesn't match
+            }
+        });
+    }
     </script>
 </head>
 <body>
-    <!-- Header section -->
 
     <!-- Tab buttons -->
     <div class="tab-container">
@@ -824,8 +886,20 @@
 
     <!-- Tab 1: Twitter Bios -->
     <div id="tab1" class="tab-content active">
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                switchTab('tab1');
+            });
+        </script>
         <!-- Search Field -->
-        <input type="text" id="searchField" onkeyup="searchNames()" placeholder="Search for names..." />
+        <div id="filter-container-1" style="margin-bottom: 20px;">
+            <input type="text" id="searchField" onkeyup="searchNames()" placeholder="Search for names..." />
+            <label for="subjectFilterTab1">Filter by Subject:</label>
+            <select id="subjectFilterTab1" onchange="filterBySubject('twitterTable')">
+                <option value="">All</option>
+                <!-- Options will be dynamically populated based on unique subjects -->
+            </select>
+        </div>
 
         {% if entries %}
         <table id="twitterTable">
@@ -834,6 +908,7 @@
                     <th>Name</th>
                     <th>Bio</th>
                     <th>Last Checked</th>
+                    <th>Subject</th>
                     <th>Active</th>
                     <th>Twitter</th>
                 </tr>
@@ -857,6 +932,7 @@
                     </td>
                     <td>{{ entry.bio }}</td>
                     <td>{{ entry.last_check }}</td>
+                    <td>{{ entry.subject }}</td>
                     <td>
                         <span id="checkmark-{{ entry._id }}" class="checkmark {% if entry.activ %}green{% else %}red{% endif %}" 
                               onclick="toggleActiv('{{ entry._id }}')">
@@ -884,11 +960,15 @@
     <!-- Tab 2: Bios Agg -->
     <div id="tab2" class="tab-content">
         {% if bios_agg %}
-
         <!-- Checkboxes for filtering by log type -->
-        <div id="log-filter-container" style="margin-bottom: 20px;">
-            <!-- Add clear logs button -->
+        <div id="filter-container-2" style="margin-bottom: 20px;">
             <button id="clear-button" onclick="clearDiff()" style="margin-left: 20px; padding: 5px 10px; background-color: red; color: white;">Clear Differences</button>
+
+            <label for="subjectFilterTab2">Filter by Subject:</label>
+            <select id="subjectFilterTab2" onchange="filterBySubject('biosAggTable')">
+                <option value="">All</option>
+                <!-- Options will be dynamically populated based on unique subjects -->
+            </select>
         </div>
         
         <table id="biosAggTable">
@@ -897,7 +977,8 @@
                     <th>Name</th>
                     <th>Old Bio</th>
                     <th>New Bio</th>
-                    <th>Active</th>
+                    <th>Subject</th>
+                    <!--<th>Active</th>-->
                     <th>Twitter</th>
                 </tr>
             </thead>
@@ -918,9 +999,10 @@
                             </span>
                         </div>
                     </td>
-                    <td class="bio-old">{{ entry.bio }}</td> <!-- Old bio in red -->
-                    <td class="bio-new">{{ entry.new_bio }}</td> <!-- New bio in green -->
-                    <td>
+                    <td class="bio-old">{{ entry.bio }}</td>
+                    <td class="bio-new">{{ entry.new_bio }}</td> 
+                    <td>{{ entry.subject }}</td>
+                    <!--<td>
                         <span id="checkmark-{{ entry._id }}" class="checkmark {% if entry.activ %}green{% else %}red{% endif %}" 
                               onclick="toggleActiv('{{ entry._id }}')">
                             {% if entry.activ %}
@@ -929,7 +1011,7 @@
                                 &#10007;
                             {% endif %}
                         </span>
-                    </td>
+                    </td>-->
                     <td>
                         <a href="https://x.com/{{ entry.twitter_username }}" target="_blank">
                             <img src="https://cdn-icons-png.freepik.com/256/3670/3670211.png?semt=ais_hybrid" alt="Twitter" class="twitter-logo">
@@ -949,23 +1031,30 @@
 
     <div id="tab3" class="tab-content">
         <!-- Date filter only for Tab 3 -->
-        <div id="filter-container" style="margin-bottom: 20px;">
-            <label for="filter-date">Show news published after:</label>
+        <div id="filter-container-3" style="margin-bottom: 20px;">
+            <label for="subjectFilterTab3">Filter by Subject:</label>
+            <select id="subjectFilterTab3" onchange="filterBySubject('people-news-table')">
+                <option value="">All</option>
+                <!-- Options will be dynamically populated based on unique subjects -->
+            </select>
+        
+            <label for="filter-date" style="margin-left: 20px;">Show news published after:</label>
             <input type="date" id="filter-date" onchange="filterNewsByDate()">
         </div>
-    
+            
         <table id="people-news-table">
             <thead>
                 <tr>
                     <th>Photo</th>
                     <th>Name</th>
                     <th>News</th>
+                    <th>Subject</th>
                 </tr>
             </thead>
             <tbody id="people-news-container">
-                <!-- Rows will be dynamically injected here -->
             </tbody>
         </table>
+        <p>Loading this page may take a minute...</p>
     </div>
 
     <!-- Tab 4: Logs -->
@@ -1026,6 +1115,11 @@
                 <label for="googleAlertFeed">Google Alert Feed URL:</label>
                 <input type="url" id="googleAlertFeed" name="googleAlertFeed">
             </div>
+
+            <div class="form-group">
+                <label for="subject">Subject:</label>
+                <input type="text" id="subject" name="subject">
+            </div>
     
             <button type="submit" class="styled-button">Add User to Database</button>
         </form>
@@ -1037,6 +1131,7 @@
                 <tr>
                     <th>Name</th>
                     <th>Twitter</th>
+                    <th>Subject</th>
                     <th>Delete</th>
                 </tr>
             </thead>
@@ -1051,6 +1146,7 @@
             <thead>
                 <tr>
                     <th>Name</th>
+                    <th>Subject</th>
                     <th>Delete</th>
                 </tr>
             </thead>

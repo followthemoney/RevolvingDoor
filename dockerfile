@@ -39,5 +39,8 @@ RUN touch /var/log/cron.log
 # Give permission to edit json file 
 RUN chmod 777 /usr/src/app/config.json
 
+# run crond as main process of container
+CMD ["cron", "-f"]
+
 # Run both cron and supervisor when the container starts
-CMD cron && supervisord -c /etc/supervisor/supervisord.conf
+CMD supervisord -c /etc/supervisor/supervisord.conf

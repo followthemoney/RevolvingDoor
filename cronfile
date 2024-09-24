@@ -1,4 +1,4 @@
 # Run twitter.py once a day at a different time (randomized via cron syntax)
-0 0 * * * python /usr/src/app/twitter.py
+0 0 * * * python /usr/src/app/twitter.py > /proc/1/fd/1 2>/proc/1/fd/2
 # Run rss.py twice a day at the same times (e.g., 12:00 and 18:00)
-0 12,18 * * * python /usr/src/app/rss.py
+0 12,18 * * * python /usr/src/app/rss.py > /proc/1/fd/1 2>/proc/1/fd/2
