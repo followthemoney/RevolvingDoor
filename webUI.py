@@ -6,7 +6,7 @@ from logs import LogsWriter
 from waitress import serve
 from datetime import datetime, timedelta
 app = Flask(__name__)
-config_path = './config.json'
+config_path = './config_beta.json'
 with open(config_path, 'r') as file:
     CONFIG = json.load(file)
 
@@ -20,7 +20,7 @@ db = client[CONFIG['db_name']]
 collection = db['twitter_bios']
 bios_agg_collection = db['bios_agg']  # New collection for bios_agg
 ppfeed = db['rss_feeds']
-newsfeed = db['rss_entries']
+newsfeed = db['rss_entries_2']
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -74,28 +74,85 @@ def toggle_activ(id):
 
 @app.route('/get_people_news', methods=['GET'])
 def get_people_news():
-    people = list(ppfeed.find())
+    start_date = request.args.get('start_date')
+    country = request.args.get('country')
+    party = request.args.get('party')
+    groupe = request.args.get('groupe')
+    is_news = request.args.get('is_news')
+    subject = request.args.get('subject')
     results = []
-    for person in people:
-        user_id = person['userID']
-        news_entries = list(newsfeed.find({'userID': user_id}))
-        person_data = {
-            'name': person['full_name'],
-            'photo': person['photo'],
-            'profile_url': person['meta']['url'],
-            'news': [],
-            'subject' : person['subject']
+    query = {}
+    if start_date:
+        query['published'] = {'$gte': datetime.strptime(start_date, '%Y-%m-%d')}
+    if country:
+        query['constituencies_country'] = country
+    if party:
+        query['constituencies_party'] = party
+    if groupe:
+        query['groups_organization'] = groupe
+    if is_news:
+        query['is_news'] = is_news.lower() == 'true'
+    post_query = {}
+    if subject:
+        post_query['subject'] = subject
+    pipeline = [
+        # Matchingg
+        {
+            "$match": query
+        },
+        # Groupingggg
+        {
+            "$group": {
+            "_id": "$userID",
+            "news": {
+                "$push": {
+                "title": "$title",
+                "link": "$link",
+                "summary": "$summary",
+                "published": "$published",
+                "in_transparency" : "$in_transparency",
+                }
+            },
+            "name": {"$first": "$full_name"},
+            }
+        },
+        {
+            "$sort": {
+            "news.published": -1  # Sort by the date 
+            }
+        },
+        {
+            "$lookup": {
+                "from": "rss_feeds",  # The name of the collection to join
+                "localField": "_id",  # Field from newsfeed (grouped by userID)
+                "foreignField": "userID",  # Field from ppfeed to match
+                "as": "pp_data"  # Output array with matching documents from ppfeed
+            }
+        },
+        # Add photo and meta.url 
+        {
+            "$addFields": {
+                "photo": {
+                    "$arrayElemAt": ["$pp_data.photo", 0]  # get first no list
+                },
+                "profile_url": {
+                    "$arrayElemAt": ["$pp_data.meta.url", 0]  # get first no list
+                },
+                "subject": {
+                    "$arrayElemAt": ["$pp_data.subject", 0]  # get first no list
+                },
+            }
+        },
+        {
+            "$project": {
+                "pp_data": 0  # remove raw ppdata
+            }
+        },
+        {
+            "$match": post_query
         }
-
-        for news in news_entries:
-            person_data['news'].append({
-                'title': news['title'],
-                'link': news['link'],
-                'summary': news['summary'],
-                'published': news['published']
-            })
-        if len(person_data['news']) > 0:
-            results.append(person_data)
+    ]
+    results = list(newsfeed.aggregate(pipeline))
 
     logger.debug("WEB - People news fetched successfully")
     return jsonify(results)
@@ -180,9 +237,11 @@ def add_user():
             'meta' : {'url' : data['photoUrl']},
             'photo': data['photoUrl'],
             'rss': data['googleAlertFeed'],
+            'news_rss' : data['NewsgoogleAlertFeed'],
             'subject' : data['subject'],
             'activ' : True
         }
+        print(rss_feed_data)
         logger.info(f'WEB - Adding user {rss_feed_data["full_name"]} to Google Alerts database')
 
         # Insert into the rss_feeds collection
@@ -243,10 +302,18 @@ def get_unique_subjects_rss():
     subjects = ppfeed.distinct('subject')
     return jsonify(subjects)
 
+@app.route('/get_people_news_filters', methods = ['GET'])
+def get_people_news_filters():
+    results = {'constituencies_party' : ppfeed.distinct('constituencies_party'),
+               'constituencies_country' : ppfeed.distinct('constituencies_country'),
+               'groups_organization' : ppfeed.distinct('groups_organization'),
+               'subject' : ppfeed.distinct('subject')}
+    return jsonify(results)
+
 if __name__ == '__main__':
     logger.info("WEB - Starting Flask server")
     try:
-        serve(app, host='0.0.0.0', port = 8080, url_scheme='https')
-        #app.run(debug=True, port=5000)
+        #serve(app, host='0.0.0.0', port = 8080, url_scheme='https')
+        app.run(debug=True, port=5000)
     except Exception as e:
         logger.critical(f"WEB - Webserver died due to: {e}")

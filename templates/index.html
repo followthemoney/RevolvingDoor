@@ -475,14 +475,35 @@
         }
 
         function loadPeopleNews() {
-            fetch('/get_people_news')
+            // Get filter values
+            const startDate = document.getElementById('filter-date') ? document.getElementById('filter-date').value : null;
+            const country = document.getElementById('countryFilterTab3').value;
+            const party = document.getElementById('partyFilterTab3').value;
+            const group = document.getElementById('groupFilterTab3').value;
+            const subject = document.getElementById('subjectFilterTab3').value;
+            const isNews = document.getElementById('isNewsFilterTab3').value;  // Get the value from the is_news filter
+
+            // Construct query parameters
+            const params = new URLSearchParams();
+            if (startDate) params.append('start_date', startDate);
+            if (country) params.append('country', country);
+            if (party) params.append('party', party);
+            if (group) params.append('groupe', group);
+            if (subject) params.append('subject', subject);
+            if (isNews === 'true') {
+                params.append('is_news', 'true');
+            } else if (isNews === 'false') {
+                params.append('is_news', 'false');
+            }
+            // Fetch data with filters
+            fetch('/get_people_news?' + params.toString())
                 .then(response => response.json())
                 .then(data => {
                     const container = document.getElementById('people-news-container');
                     container.innerHTML = ''; // Clear any existing content
 
                     if (data.length === 0) {
-                        container.innerHTML = '<tr><td colspan="3">No data found</td></tr>';
+                        container.innerHTML = '<tr><td colspan="4">No data found</td></tr>';
                         return;
                     }
 
@@ -500,8 +521,8 @@
                                 <ul class="news-list">
                                     ${person.news.map(news => `
                                         <li data-published="${news.published}">
-                                            <img src="/static/down_arrow.svg" class="toggle-summary-arrow" onclick="toggleSummary(this)" alt="Expand Arrow" style="cursor: pointer; width: 16px; height: 16px; transition: transform 0.3s ease;">
-                                            <a href="${news.link}" target="_blank">${news.title}</a>
+                                            <img src="/static/down_arrow.svg" class="toggle-summary-arrow" onclick="toggleSummary(this)" alt="Expand Arrow" style="cursor: pointer; width: 16px; height: 16px;">
+                                            <a href="${news.link}" target="_blank" style="color: ${news.in_transparency ? 'red' : 'inherit'};">${news.title}</a>
                                             <div class="news-summary" style="display: none;">
                                                 <p>${news.summary}</p>
                                                 <small>Published: ${new Date(news.published).toLocaleDateString()}</small>
@@ -515,13 +536,10 @@
 
                         container.appendChild(row);
                     });
-
-                    // Initialize filter function in case a date is already selected
-                    filterNewsByDate();
                 })
                 .catch(error => {
                     console.error('Error fetching people news:', error);
-                    document.getElementById('people-news-container').innerHTML = '<tr><td colspan="3">Error loading data</td></tr>';
+                    document.getElementById('people-news-container').innerHTML = '<tr><td colspan="4">Error loading data</td></tr>';
                 });
         }
 
@@ -535,51 +553,7 @@
                 arrow.style.transform = 'rotate(0deg)';  // Reset the arrow when collapsed
             }
         }
-        function filterNewsByDate() {
-            const filterDateValue = document.getElementById('filter-date').value;
 
-            let noPeopleVisible = true;  // Track if any people are visible after filtering
-
-            if (!filterDateValue) {
-                // If no date is selected, show all news and all people
-                document.querySelectorAll('.news-list li').forEach(item => item.style.display = '');
-                document.querySelectorAll('#people-news-table tbody tr').forEach(row => row.style.display = '');
-                noPeopleVisible = false;
-            } else {
-                const filterDate = new Date(filterDateValue);
-
-                // Loop through all the rows (people)
-                document.querySelectorAll('#people-news-table tbody tr').forEach(row => {
-                    let hasVisibleNews = false;
-
-                    // Get all news items for the person
-                    const newsItems = row.querySelectorAll('.news-list li');
-                    
-                    newsItems.forEach(item => {
-                        const newsDate = new Date(item.getAttribute('data-published'));
-                        if (newsDate > filterDate) {
-                            item.style.display = '';  // Show this news item
-                            hasVisibleNews = true;    // Mark that the person has visible news
-                        } else {
-                            item.style.display = 'none';  // Hide this news item
-                        }
-                    });
-
-                    // If the person has no visible news, hide the entire row
-                    if (hasVisibleNews) {
-                        row.style.display = '';  // Show the person if they have news after the date
-                        noPeopleVisible = false;  // At least one person is visible
-                    } else {
-                        row.style.display = 'none';  // Hide the person if no news matches the date
-                    }
-                });
-            }
-
-            // Show a message if no people are visible
-            if (noPeopleVisible) {
-                document.getElementById('people-news-container').innerHTML = '<tr><td colspan="3">No news available for the selected date.</td></tr>';
-            }
-        } 
         function loadLogs() {
             // Get the selected log types from checkboxes
             const selectedTypes = Array.from(document.querySelectorAll('.log-filter:checked')).map(checkbox => checkbox.value);
@@ -669,6 +643,10 @@
             const photoUrl = document.getElementById('photoUrl').value;
             const twitterUsername = document.getElementById('twitterUsername').value;
             const googleAlertFeed = document.getElementById('googleAlertFeed').value;
+            const NewsgoogleAlertFeed = document.getElementById('NewsgoogleAlertFeed').value;
+            const subject = document.getElementById('subject').value;
+
+
 
             // Check if twitterUsername is a URL or starts with x.com or twitter.com
             try {
@@ -688,13 +666,18 @@
                 alert('Please provide either a Twitter Username and/or a Google Alert Feed URL.');
                 return false;
             }
+            if (!googleAlertFeed && !NewsgoogleAlertFeed) {
+                alert('Please provide a Godd Feed URL for all items and news only items.');
+                return false;
+            }
+
 
             // Send the data to the server
             fetch('/add_user', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
-                    name, profileUrl, photoUrl, twitterUsername, googleAlertFeed, subject  
+                    name, profileUrl, photoUrl, twitterUsername, googleAlertFeed, NewsgoogleAlertFeed, subject  
                 })
             }).then(response => response.json())
             .then(data => {
@@ -870,6 +853,46 @@
             }
         });
     }
+
+    function loadPeopleNewsFilters() {
+        // Fetch filter values from the server
+        fetch('/get_people_news_filters')
+            .then(response => response.json())
+            .then(filters => {
+                // Get the dropdown elements for each filter
+                const countryFilter = document.getElementById('countryFilterTab3');
+                const partyFilter = document.getElementById('partyFilterTab3');
+                const groupFilter = document.getElementById('groupFilterTab3');
+                const subjectFilter = document.getElementById('subjectFilterTab3');
+
+                // Helper function to populate a dropdown
+                function populateDropdown(dropdown, options) {
+                    dropdown.innerHTML = '<option value="">All</option>';  // Add "All" as the default option
+                    options.forEach(option => {
+                        const optElement = document.createElement('option');
+                        optElement.value = option;
+                        optElement.textContent = option;
+                        dropdown.appendChild(optElement);
+                    });
+                }
+
+                // Populate each filter dropdown with the fetched data
+                populateDropdown(countryFilter, filters.constituencies_country);
+                populateDropdown(partyFilter, filters.constituencies_party);
+                populateDropdown(groupFilter, filters.groups_organization);
+                populateDropdown(subjectFilter, filters.subject);
+            })
+            .catch(error => {
+                console.error('Error loading people news filters:', error);
+            });
+    }
+
+    // Call loadPeopleNewsFilters when the page loads
+    document.addEventListener('DOMContentLoaded', function() {
+        loadPeopleNewsFilters();  // Load filter values on page load
+        switchTab('tab1');  // Ensure the first tab is active by default
+    });
+
     </script>
 </head>
 <body>
@@ -1032,14 +1055,38 @@
     <div id="tab3" class="tab-content">
         <!-- Date filter only for Tab 3 -->
         <div id="filter-container-3" style="margin-bottom: 20px;">
-            <label for="subjectFilterTab3">Filter by Subject:</label>
-            <select id="subjectFilterTab3" onchange="filterBySubject('people-news-table')">
+            <label for="countryFilterTab3">Filter by Country:</label>
+            <select id="countryFilterTab3" onchange="loadPeopleNews()">
                 <option value="">All</option>
-                <!-- Options will be dynamically populated based on unique subjects -->
             </select>
         
+            <label for="partyFilterTab3" style="margin-left: 20px;">Filter by Party:</label>
+            <select id="partyFilterTab3" onchange="loadPeopleNews()">
+                <option value="">All</option>
+            </select>
+        
+            <label for="groupFilterTab3" style="margin-left: 20px;">Filter by Group:</label>
+            <select id="groupFilterTab3" onchange="loadPeopleNews()">
+                <option value="">All</option>
+            </select>
+        
+            <label for="subjectFilterTab3" style="margin-left: 20px;">Filter by Subject:</label>
+            <select id="subjectFilterTab3" onchange="loadPeopleNews()">
+                <option value="">All</option>
+            </select>
+            <br>
+            <label for="isNewsFilterTab3" style="margin-left: 20px;">Filter by News:</label>
+            <select id="isNewsFilterTab3" onchange="loadPeopleNews()">
+                <option value="all">All</option>
+                <option value="true">News Only</option>
+                <option value="false">No News</option>
+            </select>
+
+            
             <label for="filter-date" style="margin-left: 20px;">Show news published after:</label>
-            <input type="date" id="filter-date" onchange="filterNewsByDate()">
+            <input type="date" id="filter-date">
+
+            <button id="search-button" style="margin-left: 10px;" onclick="loadPeopleNews()">Search</button>
         </div>
             
         <table id="people-news-table">
@@ -1054,7 +1101,7 @@
             <tbody id="people-news-container">
             </tbody>
         </table>
-        <p>Loading this page may take a minute...</p>
+
     </div>
 
     <!-- Tab 4: Logs -->
@@ -1112,10 +1159,15 @@
             </div>
     
             <div class="form-group">
-                <label for="googleAlertFeed">Google Alert Feed URL:</label>
+                <label for="googleAlertFeed">All Google Alert Feed URL:</label>
                 <input type="url" id="googleAlertFeed" name="googleAlertFeed">
             </div>
 
+            <div class="form-group">
+                <label for="NewsgoogleAlertFeed">News Only Google Alert Feed URL:</label>
+                <input type="url" id="NewsgoogleAlertFeed" name="NewsgoogleAlertFeed">
+            </div>
+            
             <div class="form-group">
                 <label for="subject">Subject:</label>
                 <input type="text" id="subject" name="subject">

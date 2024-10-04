@@ -7,7 +7,9 @@ import hashlib
 from logs import LogsWriter
 import bleach
 import requests
+from datetime import datetime
 import random
+from urllib.parse import urlparse
 
 class NewsChecker:
     def __init__(self, config_path):
@@ -17,7 +19,8 @@ class NewsChecker:
         self.client = MongoClient(CONFIG['db_url'])
         self.db = self.client[CONFIG['db_name']]
         self.col_feed = self.db['rss_feeds']
-        self.col_entries = self.db['rss_entries']
+        self.col_entries = self.db['rss_entries_2']
+        self.col_transparency = self.db['transparency']
         self.wait_between_fetch = CONFIG['RSS_wait_betwen_fetch']
         self.logs = LogsWriter(CONFIG)
         self.logs.info("RSS - Starting Google Alerts RSS Fetcher...")
@@ -25,7 +28,6 @@ class NewsChecker:
         for prox in self.__get_proxies():
             self.url_proxies.append({'http':f"socks5://{prox['username']}:{prox['password']}@{prox['ip']}:{prox['port']}",
                     'https':f"socks5://{prox['username']}:{prox['password']}@{prox['ip']}:{prox['port']}"})
-
         self.__check()
         self.logs.info("RSS - Finished with Google Alerts RSS Fetcher.")
 
@@ -37,13 +39,45 @@ class NewsChecker:
             return True
         else :
             return False
+        
+    def __check_website(self, url):
+        url = url.replace('https://www.google.com/url?rct=j&sa=t&url=', '')
+        domain = urlparse(url).netloc.replace('www.','')
+        ignore_list = ['twitter.com', 'x.com', 'google.com', 'youtube.com', 'facebook.com', 'instagram.com', 'dailymotion.com', 'bbc.co.uk']
+        finding = self.col_transparency.find_one({'webSiteURL': {'$regex': f".*{domain}.*"}})
+        if domain in ignore_list:
+            return False
+        elif finding:
+            return True
+        return False
 
     def __check(self):
         for entry in self.col_feed.find():
             PROXY_DATA = random.choice(self.url_proxies)
             proxy_handler = ProxyHandler(PROXY_DATA) #ADD PROXY
+            ##NEWS
+            feed = feedparser.parse(entry['news_rss'], handlers=[proxy_handler])
+            for rss_element in feed.entries:
+                if not self.__already_exist(entry['userID'], hashlib.md5(rss_element.link.encode('utf-8')).hexdigest()):
+                    self.logs.debug(f"RSS - Adding news entry for {entry['full_name']}")
+                    new_entry = {
+                        'userID' : entry['userID'],
+                        'full_name' : entry['full_name'],
+                        'title' : bleach.clean(rss_element.title),
+                        'link' : rss_element.link,
+                        'summary' : bleach.clean(rss_element.summary),
+                        'published' : datetime.strptime(rss_element.published, '%Y-%m-%dT%H:%M:%SZ'),
+                        'md5' : hashlib.md5(rss_element.link.encode('utf-8')).hexdigest(),
+                        'constituencies_country' : entry['constituencies_country'],
+                        'constituencies_party' : entry['constituencies_party'],
+                        'groups_organization' : entry['groups_organization'],
+                        'is_news' : True,
+                        'in_transparency' : False #Set news item as false as some news are in transparency register
+                    }
+                    self.col_entries.insert_one(new_entry)
+            sleep(self.wait_between_fetch)
+            ##ALL
             feed = feedparser.parse(entry['rss'], handlers=[proxy_handler])
-            self.logs.debug(f"RSS - Looking for news from {entry['full_name']}.")
             for rss_element in feed.entries:
                 if not self.__already_exist(entry['userID'], hashlib.md5(rss_element.link.encode('utf-8')).hexdigest()):
                     self.logs.debug(f"RSS - Adding News entry for {entry['full_name']}")
@@ -53,8 +87,13 @@ class NewsChecker:
                         'title' : bleach.clean(rss_element.title),
                         'link' : rss_element.link,
                         'summary' : bleach.clean(rss_element.summary),
-                        'published' : rss_element.published,
-                        'md5' : hashlib.md5(rss_element.link.encode('utf-8')).hexdigest()
+                        'published' : datetime.strptime(rss_element.published, '%Y-%m-%dT%H:%M:%SZ'),
+                        'md5' : hashlib.md5(rss_element.link.encode('utf-8')).hexdigest(),
+                        'constituencies_country' : entry['constituencies_country'],
+                        'constituencies_party' : entry['constituencies_party'],
+                        'groups_organization' : entry['groups_organization'],
+                        'is_news' : False,
+                        'in_transparency' : self.__check_website(rss_element.link),
                     }
                     self.col_entries.insert_one(new_entry)
             sleep(self.wait_between_fetch)
@@ -80,4 +119,4 @@ class NewsChecker:
         return PROXIES
 
 
-NewsChecker('./config.json')
+NewsChecker('./config_beta.json')
