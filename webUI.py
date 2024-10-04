@@ -6,7 +6,7 @@ from logs import LogsWriter
 from waitress import serve
 from datetime import datetime, timedelta
 app = Flask(__name__)
-config_path = './config_beta.json'
+config_path = './config.json'
 with open(config_path, 'r') as file:
     CONFIG = json.load(file)
 
@@ -313,7 +313,7 @@ def get_people_news_filters():
 if __name__ == '__main__':
     logger.info("WEB - Starting Flask server")
     try:
-        #serve(app, host='0.0.0.0', port = 8080, url_scheme='https')
-        app.run(debug=True, port=5000)
+        serve(app, host='0.0.0.0', port = 8080, url_scheme='https')
+        #app.run(debug=True, port=5000)
     except Exception as e:
         logger.critical(f"WEB - Webserver died due to: {e}")

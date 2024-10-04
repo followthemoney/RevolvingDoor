@@ -119,4 +119,4 @@ class NewsChecker:
         return PROXIES
 
 
-NewsChecker('./config_beta.json')
+NewsChecker('./config.json')
