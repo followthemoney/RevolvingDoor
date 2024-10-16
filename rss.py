@@ -87,7 +87,7 @@ class NewsChecker:
         page_title = soup.title.string if soup.title else 'No Title'
         page_contents = soup.get_text()
         page_contents = ' '.join(page_contents.split())
-        self.logs.debug(f"RSS - Done fetching URL {url}")
+        #self.logs.debug(f"RSS - Done fetching URL {url}")
         if 'youtube.com' in url or 'youtu.be' in url:
             video_id = url.split('%3Fv%3D')[-1].split('v%3D')[-1].split('&')[0]
             subtitles = ""
