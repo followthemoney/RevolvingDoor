@@ -6,3 +6,4 @@ python_crontab==3.2.0
 requests[socks]
 tweeterpy==1.2.4
 waitress==3.0.0
+youtube_transcript_api==0.6.2
