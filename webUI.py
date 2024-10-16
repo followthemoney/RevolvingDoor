@@ -120,7 +120,8 @@ def get_people_news():
     if is_news:
         query['is_news'] = is_news.lower() == 'true'
     if llm_min_score:
-        query['llm_score'] = {'$gte': int(llm_min_score)}
+        if int(llm_min_score) != 0:
+            query['llm_score'] = {'$gte': int(llm_min_score)}
     if llm_processed:
         if llm_processed.lower() == 'true':
             query['llm_state'] = 'completed'
@@ -139,7 +140,6 @@ def get_people_news():
     if subject:
         post_query['subject'] = subject
         
-    print(post_query)
     pipeline = [
         # Matchingg
         {
@@ -212,21 +212,13 @@ def get_people_news():
 def get_logs():
     # Get the log types to filter from the request parameters
     log_types = request.args.getlist('types[]')
-
+    limit = request.args.get('limit', default=100, type=int)
     # If no log types are specified, return all logs
     query = {}
     if log_types:
         query = {'type': {'$in': log_types}}
-    logs = list(db['logs'].find(query).sort('date', -1))  # Sort logs by date in descending order
-    log_data = []
-    for log in logs:
-        log_data.append({
-            'type': log['type'],
-            'msg': log['msg'],
-            'date': log['date']
-        })
-    
-    return jsonify(log_data)
+    logs = list(db['logs'].find(query, {'type': 1, 'msg': 1, 'date': 1, '_id': 0}).sort('date', -1).limit(limit))
+    return jsonify(logs)
 
 @app.route('/clear_logs', methods=['POST'])
 def clear_logs():
