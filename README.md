@@ -6,7 +6,12 @@ Features :
     1. Filter by name
     2. Disable/Enable a profile.
 2. Getting news from Google alerts.
-    1. Filter by date.
+    1. Filter by date, country, party, group...
+    2. Differentiate between "News" item and "Non-News item"
+    3. Pin potential leads
+    4. Flag clicked links as such
+    5. Predict Revolving Door cases through an LLM
+        1. Handle youtube videos content by downloading subtitles
 3. Manually add people to the Twitter or Google Alerts watch.
     1. Add a subject to classify by investigation. 
 
@@ -46,7 +51,7 @@ docker compose build
 ```
 
 ```
-docker compose up
+docker compose up -d
 ```
 
 ### MongoDB Docker and Database
@@ -56,9 +61,9 @@ The database is available for direct download, it need to be imported in a [Mong
 ```
 mkdir database
 cd database
-curl -L 'https://drive.google.com/uc?export=download&id=1Pp6xUYeom6NvKU4AM9nI33hDPHyLcAlJ' -o backup.zip
-unzip backup.zip
-cd database2/backup
+curl -L 'https://drive.google.com/uc?export=download&id=1eRax-2YffaY5rCjOF1kMxPQM7Q_mevq_' -o backup.zip
+unzip data.zip
+cd data/dump_v3
 ```
 Add the database to the docker
 ```
@@ -71,11 +76,7 @@ Edits fields in config_example.json and rename it config.json
 
 You will need:
 1. A twitter account. Don't use your account, you may get banned.
-2. A Webshare.io API key to get a proxy.
+2. A Webshare.io API key and proxy login to get a proxy.
 3. You need to generate a [Flask Secret Key](https://whiztal.io/secret-key-generation-for-django-and-flask/).
 
 Edit the public IP of the machine running the code in the main function of webUI.py.
-
-
-## TODO
-1. Add alerts when name are detected in other datasets ?
