@@ -12,6 +12,7 @@ Features :
     4. Flag clicked links as such
     5. Predict Revolving Door cases through an LLM
         1. Handle youtube videos content by downloading subtitles
+        2. Solved protected website with FlareSolverr
 3. Manually add people to the Twitter or Google Alerts watch.
     1. Add a subject to classify by investigation. 
 

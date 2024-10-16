@@ -35,6 +35,7 @@ class NewsChecker:
         self.llm_requests = []
         self.url_proxies = {'http':f"http://{prox['username']}:{prox['password']}@{prox['ip']}:{prox['port']}",
                 'https':f"http://{prox['username']}:{prox['password']}@{prox['ip']}:{prox['port']}"}
+        self.solver_proxy = {"url": "http://{prox['ip']}:{prox['port']}", "username": prox['username'], "password": prox['password']}
         self.LLM = LLM.LLMBatchProcessor(config_path)
         self.fetch_llm_results()
         self.__check()
@@ -45,6 +46,7 @@ class NewsChecker:
         self.logs.debug(f"RSS - Fetching URL {url}")
         headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:131.0) Gecko/20100101 Firefox/131.0"}
         PROXY_DATA = self.url_proxies
+        solvedwflaresolver = False
         try:
             response = requests.get(url, headers=headers, proxies=PROXY_DATA, timeout=(5, 10), verify=True)
             response.raise_for_status()  # Handle HTTP errors
@@ -61,13 +63,27 @@ class NewsChecker:
             self.logs.error(f"RSS - Too many redirects for URL {url}")
             return ""
         except requests.exceptions.RequestException as e:
-            self.logs.error(f"RSS - Error fetching URL {url}: {e}")
+            self.logs.info(f"RSS - Error fetching URL {url}: {e}")
+            try:
+                #Try to solve with FlareSolverr
+                url_fs = self.CONFIG['FlareSolverr']
+                headers = {"Content-Type": "application/json"}
+                data = {
+                    "cmd": "request.get",
+                    "url": url,
+                    "maxTimeout": 6000,
+                    "proxy" : self.solver_proxy
+                }
+                response = requests.post(url_fs, headers=headers, json=data)
+                solvedwflaresolver = True
+            except Exception as e:
+                self.logs.error(f"RSS - Solve Error with FlareSolverr failed for {url} with error: {e}")
             return ""
         except Exception as e:
             self.logs.error(f"RSS - Unexpected error fetching URL {url}: {e}")
             return ""
-        
-        soup = BeautifulSoup(response.content, 'html.parser')
+        html_content = response.json()['solution']['response'] if solvedwflaresolver else response.content #different key for both method ;(
+        soup = BeautifulSoup(html_content, 'html.parser')
         page_title = soup.title.string if soup.title else 'No Title'
         page_contents = soup.get_text()
         page_contents = ' '.join(page_contents.split())
@@ -157,7 +173,7 @@ class NewsChecker:
                         'constituencies_party' : entry['constituencies_party'],
                         'groups_organization' : entry['groups_organization'],
                         'is_news' : True,
-                        'in_transparency' : self.__check_website(rss_element.link), #should have a better news filter ??
+                        'in_transparency' : self.__check_website(rss_element.link), #Set news item as false as some news are in transparency register,
                         'llm_run' : False,
                         'llm_state' : 'pending',
                         'llm_score' : 0,

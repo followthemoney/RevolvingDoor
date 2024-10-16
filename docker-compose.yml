@@ -19,6 +19,18 @@ services:
       - "27017:27017"  # Expose MongoDB
     networks:
       - RDW_network  # Make sure MongoDB is on the same network
+      
+  flaresolverr:
+    image: ghcr.io/flaresolverr/flaresolverr:latest
+    container_name: flaresolverr
+    ports:
+      - "8191:8191"
+    environment:
+      - LOG_LEVEL=info
+    restart: unless-stopped
+    networks:
+      - RDW_network
+  
 
 networks:
   RDW_network:
