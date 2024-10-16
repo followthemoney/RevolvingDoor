@@ -37,9 +37,9 @@ class NewsChecker:
                 'https':f"http://{prox['username']}:{prox['password']}@{prox['ip']}:{prox['port']}"}
         self.solver_proxy = {"url": "http://{prox['ip']}:{prox['port']}", "username": prox['username'], "password": prox['password']}
         self.LLM = LLM.LLMBatchProcessor(config_path)
-        self.fetch_llm_results()
+        #self.fetch_llm_results()
         self.__check()
-        self.LLM.upload_batch()
+        #self.LLM.upload_batch()
         self.logs.info("RSS - Finished with Google Alerts RSS Fetcher.")
 
     def __get_page_content(self, url):
@@ -47,6 +47,18 @@ class NewsChecker:
         headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:131.0) Gecko/20100101 Firefox/131.0"}
         PROXY_DATA = self.url_proxies
         solvedwflaresolver = False
+        if 'youtube.com' in url or 'youtu.be' in url:
+            self.logs.debug(f"RSS - Youtube Subtitle download {url}")
+            subtitles = ""
+            try:
+                video_id = url.split('%3Fv%3D')[-1].split('v%3D')[-1].split('&')[0]
+                lang = [transcript.language_code for transcript in YouTubeTranscriptApi.list_transcripts(video_id)]
+                transcript = YouTubeTranscriptApi.get_transcript(video_id, lang, proxies = PROXY_DATA)
+                subtitles = "\n".join([entry['text'] for entry in transcript])
+                return subtitles
+            except Exception as e:
+                self.logs.error(f"RSS - Error fetching subtitles for YouTube URL {url}: {e}")
+                return ""
         try:
             response = requests.get(url, headers=headers, proxies=PROXY_DATA, timeout=(5, 10), verify=True)
             response.raise_for_status()  # Handle HTTP errors
@@ -87,18 +99,7 @@ class NewsChecker:
         page_title = soup.title.string if soup.title else 'No Title'
         page_contents = soup.get_text()
         page_contents = ' '.join(page_contents.split())
-        #self.logs.debug(f"RSS - Done fetching URL {url}")
-        if 'youtube.com' in url or 'youtu.be' in url:
-            video_id = url.split('%3Fv%3D')[-1].split('v%3D')[-1].split('&')[0]
-            subtitles = ""
-            try:
-                transcript = YouTubeTranscriptApi.get_transcript(video_id, proxies = PROXY_DATA)
-                subtitles = "\n".join([entry['text'] for entry in transcript])
-            except Exception as e:
-                self.logs.error(f"RSS - Error fetching subtitles for YouTube URL {url}: {e}")
-            page_contents = page_contents + "\n\n" + subtitles
-            self.logs.debug(f"RSS - Done fetching YouTube URL {url}")
-            return page_title + "\n\n" + page_contents
+        self.logs.debug(f"RSS - Done fetching URL {url}")
 
         return page_title + "\n\n" + page_contents
  
@@ -141,7 +142,7 @@ class NewsChecker:
 
     def __check(self):
         self.logs.debug(f"RSS - Fetching News labeled entries")
-        for entry in self.col_feed.find():
+        for entry in self.col_feed.find()[150:]:
             if 'constituencies_country' not in entry.keys():
                 entry['constituencies_country'] = '' 
             if 'constituencies_party' not in entry.keys():
