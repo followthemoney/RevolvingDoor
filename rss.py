@@ -127,11 +127,11 @@ class NewsChecker:
         self.logs.debug(f"RSS - Fetching News labeled entries")
         for entry in self.col_feed.find():
             if 'constituencies_country' not in entry.keys():
-                entry['constituencies_country'] == '' 
+                entry['constituencies_country'] = '' 
             if 'constituencies_party' not in entry.keys():
-                entry['constituencies_party'] == '' 
+                entry['constituencies_party'] = '' 
             if 'groups_organization' not in entry.keys():
-                entry['groups_organization'] == '' 
+                entry['groups_organization'] = '' 
             #PROXY_DATA = random.choice(self.url_proxies)
             PROXY_DATA = self.url_proxies
             proxy_handler = ProxyHandler(PROXY_DATA) #ADD PROXY
@@ -157,14 +157,13 @@ class NewsChecker:
                         'constituencies_party' : entry['constituencies_party'],
                         'groups_organization' : entry['groups_organization'],
                         'is_news' : True,
-                        'in_transparency' : self.__check_website(rss_element.link), #Set news item as false as some news are in transparency register,
+                        'in_transparency' : self.__check_website(rss_element.link), #should have a better news filter ??
                         'llm_run' : False,
                         'llm_state' : 'pending',
                         'llm_score' : 0,
                         'read' : False,
                         'pinned' : False
                     }
-                    #print(f"TRYING TO REACH {rss_element.link.replace('https://www.google.com/url?rct=j&sa=t&url=', '').split('&ct=')[0]}")
                     self.col_entries.insert_one(new_entry)
                     try:
                         page_content = self.__get_page_content(rss_element.link.replace('https://www.google.com/url?rct=j&sa=t&url=', '').split('&ct=')[0])
@@ -204,7 +203,6 @@ class NewsChecker:
                         'read' : False,
                         'pinned' : False
                     }
-                    #print(f"TRYING TO REACH {rss_element.link.replace('https://www.google.com/url?rct=j&sa=t&url=', '').split('&ct=')[0]}")
                     self.col_entries.insert_one(new_entry)
                     try:
                         page_content = self.__get_page_content(rss_element.link.replace('https://www.google.com/url?rct=j&sa=t&url=', '').split('&ct=')[0])
