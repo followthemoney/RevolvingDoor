@@ -653,7 +653,6 @@
         function togglePinnedIcon(pin) {
             // Change the icon of class toggle-pin-icon from pinned to notpinned
             const pinIcon = pin.closest('li').querySelector('.toggle-pin-icon');
-            console.log(pinIcon)
             if (pinIcon) {
                 if (pinIcon.src.includes('notpinned')) {
                     pinIcon.src = '/static/pinned.svg';
@@ -680,9 +679,16 @@
 
             // Build the query string based on the selected log types
             const queryString = selectedTypes.length ? `?types[]=${selectedTypes.join('&types[]=')}` : '';
+            // Create a URLSearchParams object to append parameters
+            const params = new URLSearchParams(queryString);
+            // Get the number of entries to display from the input field
+            const numEntries = document.getElementById('numEntries').value;
+            if (numEntries) {
+                params.append('limit', numEntries);
+            }
 
             // Fetch the logs from the server based on the selected types
-            fetch(`/get_logs${queryString}`)
+            fetch(`/get_logs?${params}`)
                 .then(response => response.json())
                 .then(logs => {
                     const container = document.getElementById('logs-container');
@@ -1260,6 +1266,8 @@
             <label><input type="checkbox" class="log-filter" value="ERROR" checked> ERROR</label>
             <label><input type="checkbox" class="log-filter" value="CRITICAL" checked> CRITICAL</label>
 
+            <label for="numEntries">Number of entries to display:</label>
+            <input type="number" id="numEntries" name="numEntries" min="1" value="100">
             <!-- Add refresh button -->
             <button id="refresh-button" onclick="loadLogs()" style="margin-left: 20px; padding: 5px 10px;">Refresh</button>
 
