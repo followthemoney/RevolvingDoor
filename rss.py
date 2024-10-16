@@ -169,7 +169,6 @@ class NewsChecker:
                     try:
                         page_content = self.__get_page_content(rss_element.link.replace('https://www.google.com/url?rct=j&sa=t&url=', '').split('&ct=')[0])
                         page_content = page_content + "\n\n" + new_entry['summary']
-                        print(page_content)
                         self.llm_requests.append({'name':entry['full_name'], 'page_text': page_content, 'uuid': new_uuid})
                     except Exception as e:
                         self.logs.error(f"RSS - Error Fetching URL {rss_element.link.replace('https://www.google.com/url?rct=j&sa=t&url=', '').split('&ct=')[0]}")
@@ -210,7 +209,6 @@ class NewsChecker:
                     try:
                         page_content = self.__get_page_content(rss_element.link.replace('https://www.google.com/url?rct=j&sa=t&url=', '').split('&ct=')[0])
                         page_content = page_content + "\n\n" + new_entry['summary']
-                        print(page_content)
                         self.llm_requests.append({'name':entry['full_name'], 'page_text': page_content, 'uuid': new_uuid})
                     except Exception as e:
                         self.logs.error(f"RSS - Error Fetching URL {rss_element.link.replace('https://www.google.com/url?rct=j&sa=t&url=', '').split('&ct=')[0]}")

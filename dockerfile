@@ -6,7 +6,7 @@ WORKDIR /usr/src/app
 
 # Copy only the necessary files into the container
 COPY requirements.txt ./
-COPY webUI.py twitter.py rss.py logs.py config.json ./
+COPY webUI.py twitter.py rss.py logs.py LLM.py config.json ./
 COPY templates/ /usr/src/app/templates/
 COPY static/ /usr/src/app/static/
 
