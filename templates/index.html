@@ -572,7 +572,7 @@
                                         <li data-published="${news.published}" class="news-item">
                                             <img src="/static/down_arrow.svg" class="toggle-summary-arrow" onclick="toggleSummary(this)" alt="Expand Arrow">
                                             <img src="/static/${news.pinned ? 'pinned' : 'notpinned'}.svg" class="toggle-pin-icon" style="width: 17px; height: 17px;" onclick="togglePinned('${news.uuid}'); togglePinnedIcon(this);">
-                                            <a href="${news.link}" target="_blank" onclick="toggleRead('${news.uuid}'); this.style.color = 'gray';">${news.title}${news.is_transparency ? ' ⚠️' : ''}</a>
+                                            <a href="${news.link}" target="_blank" onclick="toggleRead('${news.uuid}'); this.style.color = 'gray';">${news.title}${news.in_transparency ? ' ⚠️' : ''}</a>
                                             ${createProgressBar(news)}
                                             <div class="news-summary" style="display: none;">
                                                 <p>${news.summary}</p>
