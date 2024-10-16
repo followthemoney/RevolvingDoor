@@ -1,7 +1,6 @@
 import requests
 import json
 from tweeterpy import TweeterPy
-from tweeterpy import config
 from time import sleep
 import random
 from datetime import datetime, timedelta
@@ -11,6 +10,8 @@ from crontab import CronTab
 from pymongo import MongoClient
 import bleach
 from logs import LogsWriter
+from tweeterpy import config
+
 
 class TimeKeeper:
     def __init__(self, config_path):
@@ -24,8 +25,6 @@ class TimeKeeper:
         self.logs.info("TWITTER - Starting Twitter bio fetcher...")
         self.__start_process()
         self.logs.info("TWITTER - Finished Twitter bio fetcher.")
-        
-
 
     def __start_process(self):
         scraper=Scraper(self.CONFIG)
@@ -52,7 +51,6 @@ class BioAggregator:
 
     def clear_data(self):
         self.agg_collection.delete_many({})
-
 
 class Scraper:
     def __init__(self, CONFIG):
@@ -129,19 +127,22 @@ class Scraper:
     def __get_proxy(self):
         try:
             response = requests.get(
-                "https://proxy.webshare.io/api/v2/proxy/list/?mode=direct&page=1&page_size=25",
+                "https://proxy.webshare.io/api/v2/proxy/list/?mode=backbone&page=1&page_size=25&country_code__in=NL",
                 headers={"Authorization": f"Token {self.CONFIG['webshare_token']}"}
             )
             response.raise_for_status()  # Raise an HTTPError for bad responses
         except requests.RequestException as e:
             self.logs.critical(f"TWITTER - Failed to get proxy: {e}")
             return
+        random_index = random.randint(0, 24)
+        print(response)
         PROXY = {
-            'ip' : response.json()['results'][0]['proxy_address'],
-            'port' : response.json()['results'][0]['port'],
-            'username' : response.json()['results'][0]['username'],
-            'password' : response.json()['results'][0]['password']
+            'ip' : self.CONFIG['webshare_proxy_ip'],#response.json()['results'][random_index]['proxy_address'],
+            'port' : response.json()['results'][random_index]['port'],
+            'username' : response.json()['results'][random_index]['username'],
+            'password' : response.json()['results'][random_index]['password']
         }
+        print(PROXY)
         self.PROXY = PROXY
 
     def __print_notif(self, Name, old_bio, new_bio, twitter_name):

@@ -412,6 +412,47 @@
         a:hover {
             text-decoration: underline;
         }
+
+        .progress-container {
+            position: relative;
+            background-color: #f0f0f0;
+            border-radius: 3px;
+            margin-left: 10px;
+            display: inline-block;  /* Ensure it stays next to the title */
+        }
+
+        .progress-bar {
+            height: 10px;  /* Smaller height */
+            border-radius: 3px;
+            transition: width 0.3s ease;
+        }
+
+        .progress-label {
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translate(-50%, 0);  /* Center horizontally */
+            font-size: 10px;
+            line-height: 10px;
+            color: black;  /* White text for visibility */
+            z-index: 2;    /* Ensure the label is on top of the progress bar */
+        }
+        /* Pending State */
+        .pending-bar {
+            background-color: #d3d3d3; /* Light Gray for Pending */
+        }
+
+        /* Error State */
+        .error-bar {
+            background: repeating-linear-gradient(45deg, #ffcccc, #ffcccc 10px, #ff6666 10px, #ff6666 20px); /* Red Stripes for Error */
+        }
+
+        /* Small progress bar styling */
+        .progress-container.small {
+            width: 120px;  /* Make the progress bar smaller */
+            height: 10px;
+            display: inline-block;
+        }
     </style>
     <script>
         function toggleActiv(id) {
@@ -475,32 +516,41 @@
         }
 
         function loadPeopleNews() {
-            // Get filter values
             const startDate = document.getElementById('filter-date') ? document.getElementById('filter-date').value : null;
             const country = document.getElementById('countryFilterTab3').value;
             const party = document.getElementById('partyFilterTab3').value;
             const group = document.getElementById('groupFilterTab3').value;
             const subject = document.getElementById('subjectFilterTab3').value;
-            const isNews = document.getElementById('isNewsFilterTab3').value;  // Get the value from the is_news filter
+            const isNews = document.getElementById('isNewsFilterTab3').value;
 
-            // Construct query parameters
+            // New filters
+            const llmMinScore = document.getElementById('scoreSlider').value;
+            const llmProcessed = document.getElementById('llmProcessedCheckbox').checked;
+            const inTransparency = document.getElementById('transparencyCheckbox').checked;
+            const unreadLinks = document.getElementById('unreadLinksCheckbox').checked;
+            const pinnedLinks = document.getElementById('pinnedCheckbox').checked;
+
             const params = new URLSearchParams();
             if (startDate) params.append('start_date', startDate);
             if (country) params.append('country', country);
             if (party) params.append('party', party);
             if (group) params.append('groupe', group);
             if (subject) params.append('subject', subject);
-            if (isNews === 'true') {
-                params.append('is_news', 'true');
-            } else if (isNews === 'false') {
-                params.append('is_news', 'false');
-            }
-            // Fetch data with filters
+            if (isNews === 'true') params.append('is_news', 'true');
+            else if (isNews === 'false') params.append('is_news', 'false');
+
+            // Pass new filters
+            params.append('llm_min_score', llmMinScore);
+            if (llmProcessed === true) params.append('llm_processed', llmProcessed);
+            if (inTransparency === true) params.append('in_transparency', inTransparency);
+            if (unreadLinks === true) params.append('read', !unreadLinks);
+            if (pinnedLinks === true) params.append('pinned', pinnedLinks);
+
             fetch('/get_people_news?' + params.toString())
                 .then(response => response.json())
                 .then(data => {
                     const container = document.getElementById('people-news-container');
-                    container.innerHTML = ''; // Clear any existing content
+                    container.innerHTML = '';
 
                     if (data.length === 0) {
                         container.innerHTML = '<tr><td colspan="4">No data found</td></tr>';
@@ -509,7 +559,6 @@
 
                     data.forEach(person => {
                         const row = document.createElement('tr');
-
                         row.innerHTML = `
                             <td>
                                 <img src="${person.photo}" alt="Profile Photo" style="width: 50px; height: 50px; object-fit: cover;">
@@ -520,9 +569,11 @@
                             <td>
                                 <ul class="news-list">
                                     ${person.news.map(news => `
-                                        <li data-published="${news.published}">
-                                            <img src="/static/down_arrow.svg" class="toggle-summary-arrow" onclick="toggleSummary(this)" alt="Expand Arrow" style="cursor: pointer; width: 16px; height: 16px;">
-                                            <a href="${news.link}" target="_blank" style="color: ${news.in_transparency ? 'red' : 'inherit'};">${news.title}</a>
+                                        <li data-published="${news.published}" class="news-item">
+                                            <img src="/static/down_arrow.svg" class="toggle-summary-arrow" onclick="toggleSummary(this)" alt="Expand Arrow">
+                                            <img src="/static/${news.pinned ? 'pinned' : 'notpinned'}.svg" class="toggle-pin-icon" style="width: 17px; height: 17px;" onclick="togglePinned('${news.uuid}'); togglePinnedIcon(this);">
+                                            <a href="${news.link}" target="_blank" onclick="toggleRead('${news.uuid}'); this.style.color = 'gray';">${news.title}${news.is_transparency ? ' ⚠️' : ''}</a>
+                                            ${createProgressBar(news)}
                                             <div class="news-summary" style="display: none;">
                                                 <p>${news.summary}</p>
                                                 <small>Published: ${new Date(news.published).toLocaleDateString()}</small>
@@ -533,7 +584,6 @@
                             </td>
                             <td>${person.subject || 'N/A'}</td>
                         `;
-
                         container.appendChild(row);
                     });
                 })
@@ -543,8 +593,78 @@
                 });
         }
 
+        function toggleRead(uuid) {
+            fetch(`/toggle_read/${uuid}`, { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    if (!data.success) {
+                        console.error('Error toggling read status');
+                    }
+                });
+        }
+
+        function togglePinned(uuid) {
+            fetch(`/toggle_pin/${uuid}`, { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    if (!data.success) {
+                        console.error('Error toggling pin status');
+                    }
+                });
+        }
+
+        // Function to create the progress bar based on the llm_state and llm_score
+        function createProgressBar(news) {
+            if (news.llm_state === 'pending') {
+                return `<div class="progress-container small pending">
+                            <div class="progress-bar pending-bar" style="width: 100%;"></div>
+                            <span class="progress-label">Pending</span>
+                        </div>`;
+            }
+            if (news.llm_state === 'error') {
+                return `<div class="progress-container small error">
+                            <div class="progress-bar error-bar" style="width: 100%;"></div>
+                            <span class="progress-label">Error</span>
+                        </div>`;
+            }
+            if (news.llm_state === 'completed') {
+                const score = news.llm_score || 0;  // Ensure score is defined
+                return `<div class="progress-container small">
+                            <div class="progress-bar" style="width: ${score}%; background-color: ${getScoreColor(score)};"></div>
+                            <span class="progress-label">${score}%</span>
+                        </div>`;
+            }
+            return '';  // No state
+        }
+
+        // Function to calculate color gradient between light peach (#ffe6e6) and deep crimson (#a94442)
+        function getScoreColor(score) {
+            const minColor = [255, 230, 230];  // RGB for #ffe6e6
+            const maxColor = [200, 30, 30];    // RGB for #a94442
+            const ratio = score / 100;
+
+            const r = Math.floor(minColor[0] + (maxColor[0] - minColor[0]) * ratio);
+            const g = Math.floor(minColor[1] + (maxColor[1] - minColor[1]) * ratio);
+            const b = Math.floor(minColor[2] + (maxColor[2] - minColor[2]) * ratio);
+
+            return `rgb(${r}, ${g}, ${b})`;
+        }
+
+        function togglePinnedIcon(pin) {
+            // Change the icon of class toggle-pin-icon from pinned to notpinned
+            const pinIcon = pin.closest('li').querySelector('.toggle-pin-icon');
+            console.log(pinIcon)
+            if (pinIcon) {
+                if (pinIcon.src.includes('notpinned')) {
+                    pinIcon.src = '/static/pinned.svg';
+                } else {
+                    pinIcon.src = '/static/notpinned.svg';
+                }
+            }
+        }
+
         function toggleSummary(arrow) {
-            const summaryDiv = arrow.nextElementSibling.nextElementSibling;
+            const summaryDiv = arrow.closest('li').querySelector('.news-summary');
             if (summaryDiv.style.display === 'none') {
                 summaryDiv.style.display = 'block';
                 arrow.style.transform = 'rotate(180deg)';  // Rotate the arrow 180 degrees when expanded
@@ -661,16 +781,15 @@
                 alert('Twitter Username should not be a URL.');
                 return false;
             }
-
-            if (!twitterUsername && !googleAlertFeed) {
-                alert('Please provide either a Twitter Username and/or a Google Alert Feed URL.');
+            const noGoogleFeeds = !googleAlertFeed || !NewsgoogleAlertFeed;
+            if (!twitterUsername && noGoogleFeeds) {
+                if (twitterUsername) {
+                    alert('Please provide a correct Feed URL for all items and news only items.');
+                } else {
+                    alert('Please provide either a Twitter Username and/or a Google Alert Feed URL.');
+                }
                 return false;
             }
-            if (!googleAlertFeed && !NewsgoogleAlertFeed) {
-                alert('Please provide a Godd Feed URL for all items and news only items.');
-                return false;
-            }
-
 
             // Send the data to the server
             fetch('/add_user', {
@@ -1082,10 +1201,38 @@
                 <option value="false">No News</option>
             </select>
 
-            
             <label for="filter-date" style="margin-left: 20px;">Show news published after:</label>
             <input type="date" id="filter-date">
-
+            <br>
+                <!-- Score Slider for 'llm_min_score' -->
+            <label for="scoreSlider">Minimum LLM Score:</label>
+            <input type="range" id="scoreSlider" min="0" max="100" value="0" onclick="loadPeopleNews()" oninput="document.getElementById('scoreValue').innerText = this.value;">
+            <span id="scoreValue">0</span>%
+            <br>
+            <!-- LLM Processed Checkbox -->
+            <label style="margin-left: 20px;">
+                <input type="checkbox" id="llmProcessedCheckbox" checked onclick="loadPeopleNews()">
+                Only display LLM processed data
+            </label>
+            <br>
+            <!-- Transparency Register Checkbox -->
+            <label style="margin-left: 20px;">
+                <input type="checkbox" id="transparencyCheckbox" onclick="loadPeopleNews()">
+                Only show websites from the EU transparency register
+            </label>
+            <br>
+            <!-- Unread Links Checkbox -->
+            <label style="margin-left: 20px;">
+                <input type="checkbox" id="unreadLinksCheckbox" checked onclick="loadPeopleNews()">
+                Only display unclicked links
+            </label>
+            <br>
+            <!-- Unread Links Checkbox -->
+            <label style="margin-left: 20px;">
+                <input type="checkbox" id="pinnedCheckbox" onclick="loadPeopleNews()">
+                Only display pinned links
+            </label>
+            <br>
             <button id="search-button" style="margin-left: 10px;" onclick="loadPeopleNews()">Search</button>
         </div>
             

@@ -20,7 +20,7 @@ db = client[CONFIG['db_name']]
 collection = db['twitter_bios']
 bios_agg_collection = db['bios_agg']  # New collection for bios_agg
 ppfeed = db['rss_feeds']
-newsfeed = db['rss_entries_2']
+newsfeed = db['rss_entries_3']
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -72,6 +72,28 @@ def toggle_activ(id):
         return jsonify({'success': True, 'activ': new_activ})
     return jsonify({'success': False})
 
+@app.route('/toggle_read/<uuid>', methods=['POST'])
+def toggle_read(uuid):
+    print(f"toggled to read {uuid}")
+    # Find the document by its UUID and set the 'read' field to True
+    result = newsfeed.update_one({'uuid': uuid}, {'$set': {'read': True}})
+    if result.matched_count > 0:
+        return jsonify({'success': True})
+    return jsonify({'success': False, 'message': 'UUID not found'})
+
+@app.route('/toggle_pin/<uuid>', methods=['POST'])
+def toggle_pin(uuid):
+    print(f"toggled to pinned {uuid}")
+    # Find the document by its UUID and set the 'read' field to True
+    entry = newsfeed.find_one({'uuid': uuid})
+    if entry:
+        new_pinned = not entry.get('pinned', False)  # Toggle the pinned field
+        result = newsfeed.update_one({'uuid': uuid}, {'$set': {'pinned': new_pinned}})
+    if result.matched_count > 0:
+        return jsonify({'success': True})
+    return jsonify({'success': False, 'message': 'UUID not found'})
+
+
 @app.route('/get_people_news', methods=['GET'])
 def get_people_news():
     start_date = request.args.get('start_date')
@@ -80,6 +102,11 @@ def get_people_news():
     groupe = request.args.get('groupe')
     is_news = request.args.get('is_news')
     subject = request.args.get('subject')
+    llm_min_score = request.args.get('llm_min_score')
+    llm_processed = request.args.get('llm_processed')
+    read = request.args.get('read')
+    in_transparency = request.args.get('in_transparency')
+    pinned = request.args.get('pinned')
     results = []
     query = {}
     if start_date:
@@ -92,9 +119,27 @@ def get_people_news():
         query['groups_organization'] = groupe
     if is_news:
         query['is_news'] = is_news.lower() == 'true'
+    if llm_min_score:
+        query['llm_score'] = {'$gte': int(llm_min_score)}
+    if llm_processed:
+        if llm_processed.lower() == 'true':
+            query['llm_state'] = 'completed'
+    if read:
+        if read.lower() == 'false':
+            query['$or'] = [{'read': False}, {'pinned': True}]
+        else:
+            query['read'] = read.lower() == 'true'
+    #if read:
+    #    query['read'] = read.lower() == 'true'
+    if pinned:
+        query['pinned'] = pinned.lower() == 'true'
+    if in_transparency:
+        query['in_transparency'] = in_transparency.lower() == 'true'
     post_query = {}
     if subject:
         post_query['subject'] = subject
+        
+    print(post_query)
     pipeline = [
         # Matchingg
         {
@@ -111,6 +156,12 @@ def get_people_news():
                 "summary": "$summary",
                 "published": "$published",
                 "in_transparency" : "$in_transparency",
+                "llm_run" : "$llm_run",
+                "llm_state" : "$llm_state",
+                "llm_score" : "$llm_score",
+                "uuid" : "$uuid",
+                "read" : "$read",
+                "pinned" : "$pinned"
                 }
             },
             "name": {"$first": "$full_name"},
@@ -166,7 +217,6 @@ def get_logs():
     query = {}
     if log_types:
         query = {'type': {'$in': log_types}}
-
     logs = list(db['logs'].find(query).sort('date', -1))  # Sort logs by date in descending order
     log_data = []
     for log in logs:
@@ -209,7 +259,7 @@ def add_user():
     else:
         new_user_id = 'EXTRA0000'
     if data['photoUrl'] == '':
-        data['photoUrl'] = 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_960_720.png'
+        data['photoUrl'] = url_for('static', filename='blanc-profile.png')
     if data['profileUrl'] == '':
         data['profileUrl'] = 'ftm.eu'
     

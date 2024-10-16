@@ -53,6 +53,13 @@ class NewsChecker:
 
     def __check(self):
         for entry in self.col_feed.find():
+            for entry in self.col_feed.find():
+                if 'constituencies_country' not in entry:
+                    entry['constituencies_country'] == '' 
+                if 'constituencies_party' not in entry:
+                    entry['constituencies_party'] == '' 
+                if 'groups_organization' not in entry:
+                    entry['groups_organization'] == '' 
             PROXY_DATA = random.choice(self.url_proxies)
             proxy_handler = ProxyHandler(PROXY_DATA) #ADD PROXY
             ##NEWS
