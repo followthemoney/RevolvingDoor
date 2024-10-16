@@ -7,4 +7,4 @@ requests[socks]
 tweeterpy==1.2.4
 waitress==3.0.0
 youtube_transcript_api==0.6.2
-openai=1.48.0
+openai==1.48.0
