@@ -44,7 +44,7 @@ class BioAggregator:
         self.agg_collection = self.db['bios_agg']
 
     def add_entry(self, entry):
-        self.agg_collection.insert_one(entry)
+        self.agg_collection.update_one({'userID' : entry['userID']}, {'$set': entry}, upsert = True)
 
     def get_aggregated_data(self):
         return list(self.agg_collection.find())
