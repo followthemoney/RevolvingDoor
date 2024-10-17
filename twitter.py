@@ -44,7 +44,7 @@ class BioAggregator:
         self.agg_collection = self.db['bios_agg']
 
     def add_entry(self, entry):
-        self.agg_collection.update_one({'userID' : entry['userID']}, {'$set': entry}, upsert = True)
+        self.agg_collection.update_one({'userID' : entry['userID'], 'new_bio': entry['new_bio']}, {'$set': entry}, upsert = True)
 
     def get_aggregated_data(self):
         return list(self.agg_collection.find())
@@ -87,7 +87,7 @@ class Scraper:
             self.logs.debug(f"TWITTER - Attempting to get {username} bio...")
             tt_data = self.twitter.get_user_info(username)
         except:
-            self.logs.debug(f"TWITTER - Error with user {username}.")
+            self.logs.error(f"TWITTER - Error with user {username}.")
             return ''
         return bleach.clean(tt_data['legacy']['description'])
     
