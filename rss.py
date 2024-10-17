@@ -37,9 +37,9 @@ class NewsChecker:
                 'https':f"http://{prox['username']}:{prox['password']}@{prox['ip']}:{prox['port']}"}
         self.solver_proxy = {"url": "http://{prox['ip']}:{prox['port']}", "username": prox['username'], "password": prox['password']}
         self.LLM = LLM.LLMBatchProcessor(config_path)
-        #self.fetch_llm_results()
+        self.fetch_llm_results()
         self.__check()
-        #self.LLM.upload_batch()
+        self.LLM.upload_batch()
         self.logs.info("RSS - Finished with Google Alerts RSS Fetcher.")
 
     def __get_page_content(self, url):
@@ -142,7 +142,7 @@ class NewsChecker:
 
     def __check(self):
         self.logs.debug(f"RSS - Fetching News labeled entries")
-        for entry in self.col_feed.find()[150:]:
+        for entry in self.col_feed.find():
             if 'constituencies_country' not in entry.keys():
                 entry['constituencies_country'] = '' 
             if 'constituencies_party' not in entry.keys():
